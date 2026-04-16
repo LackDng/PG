@@ -53,11 +53,11 @@ def _print_invoice_content(p, invoice):
     p.text(f"Thu ngan : {invoice.created_by.get_display_name() if invoice.created_by else ''}\n")
     p.text("=" * 32 + "\n")
 
-    # Dịch vụ mic
+    # Dịch vụ
     service_orders = session.get_all_service_orders()
     if service_orders.exists():
         p.set(bold=True)
-        p.text("DICH VU MIC:\n")
+        p.text("DICH VU:\n")
         p.set(bold=False)
         for so in service_orders:
             end = so.ended_at or invoice.created_at
@@ -150,7 +150,7 @@ def get_invoice_text(invoice):
 
     service_orders = session.get_all_service_orders()
     if service_orders.exists():
-        lines.append("DỊCH VỤ MIC:")
+        lines.append("DỊCH VỤ:")
         for so in service_orders:
             end = so.ended_at or invoice.created_at
             dur = format_duration((end - so.started_at).total_seconds() / 60)

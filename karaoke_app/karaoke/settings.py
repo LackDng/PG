@@ -1,10 +1,14 @@
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = "django-insecure-karaoke-app-change-in-production"
+SECRET_KEY = os.environ.get(
+    "DJANGO_SECRET_KEY",
+    "django-insecure-karaoke-app-change-in-production"
+)
 
-DEBUG = True
+DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() not in ("false", "0", "no")
 
 ALLOWED_HOSTS = ["*"]
 
@@ -52,10 +56,12 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "karaoke.wsgi.application"
 
+# Database — hỗ trợ volume Docker (/data/db) hoặc thư mục project
+_db_dir = Path(os.environ.get("DB_DIR", str(BASE_DIR)))
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "NAME": _db_dir / "db.sqlite3",
     }
 }
 
@@ -70,6 +76,8 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+# Khi chạy Docker, collectstatic sẽ copy vào /data/static
+STATIC_ROOT = os.environ.get("STATIC_ROOT", str(BASE_DIR / "staticfiles"))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils import timezone
 from django.http import JsonResponse
-from core.models import Room, RoomSession, ServiceOrder, OrderItem, ServiceType, MenuItem, MenuCategory
+from core.models import Room, RoomSession, ServiceOrder, OrderItem, ServiceType, MenuItem, MenuCategory, ActivityLog
 from core.decorators import login_required_custom, staff_required
 from core.pricing import calculate_session_total, get_cost_breakdown
 
@@ -64,6 +64,10 @@ def room_detail(request, room_id):
         bd["order"] = so
         service_breakdowns.append(bd)
 
+    # Lịch sử hoạt động của session (và các session đã gộp)
+    all_session_ids = [session.pk] + list(session.merged_sessions.values_list("pk", flat=True))
+    activity_logs = ActivityLog.objects.filter(session_id__in=all_session_ids).select_related("user")[:50]
+
     return render(request, "rooms/room_detail.html", {
         "room": room,
         "session": session,
@@ -76,6 +80,7 @@ def room_detail(request, room_id):
         "service_types": service_types,
         "categories": categories,
         "menu_items": menu_items,
+        "activity_logs": activity_logs,
         "now": now,
     })
 
@@ -92,6 +97,8 @@ def open_room(request, room_id):
     room.status = Room.STATUS_OCCUPIED
     room.save()
 
+    ActivityLog.log(ActivityLog.ACTION_OPEN_ROOM, request.user,
+                    f"Mở phòng {room.name}", session=session)
     messages.success(request, f"Đã mở phòng {room.name}.")
     return redirect("room_detail", room_id=room.id)
 
@@ -167,13 +174,15 @@ def add_service_order(request, session_id):
         service_type_id = request.POST.get("service_type_id")
         service_type = get_object_or_404(ServiceType, pk=service_type_id, is_active=True)
 
-        ServiceOrder.objects.create(
+        so = ServiceOrder.objects.create(
             session=session,
             service_type=service_type,
             service_name=service_type.name,
             base_price=service_type.base_price,
             started_by=request.user,
         )
+        ActivityLog.log(ActivityLog.ACTION_ADD_SERVICE, request.user,
+                        f"Thêm dịch vụ '{service_type.name}' vào phòng {session.room.name}", session=session)
         messages.success(request, f"Đã thêm {service_type.name}.")
 
     return redirect("room_detail", room_id=session.room_id)
@@ -185,6 +194,9 @@ def stop_service_order(request, order_id):
     order.status = ServiceOrder.STATUS_STOPPED
     order.ended_at = timezone.now()
     order.save()
+    ActivityLog.log(ActivityLog.ACTION_STOP_SERVICE, request.user,
+                    f"Dừng dịch vụ '{order.service_name}' tại phòng {order.session.room.name}",
+                    session=order.session)
     messages.success(request, f"Đã dừng {order.service_name}.")
     return redirect("room_detail", room_id=order.session.room_id)
 
@@ -208,6 +220,9 @@ def add_menu_item(request, session_id):
             unit_price=menu_item.price,
             created_by=request.user,
         )
+        ActivityLog.log(ActivityLog.ACTION_ADD_FOOD, request.user,
+                        f"Gọi {quantity}x '{menu_item.name}' vào phòng {session.room.name}",
+                        session=session)
         messages.success(request, f"Đã thêm {quantity}x {menu_item.name}.")
 
     return redirect("room_detail", room_id=session.room_id)
@@ -231,6 +246,9 @@ def add_outside_item(request, session_id):
                 unit_price=unit_price,
                 created_by=request.user,
             )
+            ActivityLog.log(ActivityLog.ACTION_ADD_OUTSIDE, request.user,
+                            f"Thêm mua ngoài {quantity}x '{name}' vào phòng {session.room.name}",
+                            session=session)
             messages.success(request, f"Đã thêm dịch vụ ngoài: {name}.")
         else:
             messages.error(request, "Vui lòng nhập đầy đủ tên và giá.")
@@ -242,6 +260,10 @@ def add_outside_item(request, session_id):
 def remove_order_item(request, item_id):
     item = get_object_or_404(OrderItem, pk=item_id)
     room_id = item.session.room_id
+    session = item.session
+    ActivityLog.log(ActivityLog.ACTION_REMOVE_ITEM, request.user,
+                    f"Xóa '{item.name}' x{item.quantity} khỏi phòng {session.room.name}",
+                    session=session)
     item.delete()
     messages.success(request, "Đã xóa món.")
     return redirect("room_detail", room_id=room_id)
@@ -273,6 +295,9 @@ def merge_table(request):
         secondary.merged_into = primary
         secondary.save()
 
+        ActivityLog.log(ActivityLog.ACTION_MERGE_TABLE, request.user,
+                        f"Gộp phòng {secondary.room.name} vào phòng {primary.room.name}",
+                        session=primary)
         messages.success(request, f"Đã gộp phòng {secondary.room.name} vào phòng {primary.room.name}.")
         return redirect("room_detail", room_id=primary.room_id)
 
@@ -292,5 +317,8 @@ def unmerge_table(request, session_id):
     session.merged_into = None
     session.save()
 
+    ActivityLog.log(ActivityLog.ACTION_UNMERGE_TABLE, request.user,
+                    f"Hủy gộp phòng {session.room.name} khỏi phòng {primary.room.name}",
+                    session=primary)
     messages.success(request, f"Đã tách phòng {session.room.name} ra khỏi phòng {primary.room.name}.")
     return redirect("room_detail", room_id=primary.room_id)

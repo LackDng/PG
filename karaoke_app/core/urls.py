@@ -36,6 +36,8 @@ urlpatterns = [
 
     # Reports
     path("reports/daily/", reports.daily_report, name="daily_report"),
+    path("reports/export-excel/", reports.export_excel, name="export_excel"),
+    path("reports/delete-revenue/", reports.delete_revenue, name="delete_revenue"),
 
     # Admin panel
     path("admin-panel/rooms/", admin_views.manage_rooms, name="manage_rooms"),

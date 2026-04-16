@@ -273,3 +273,45 @@ class Config(models.Model):
         obj, _ = cls.objects.get_or_create(key=key)
         obj.value = str(value)
         obj.save()
+
+
+class ActivityLog(models.Model):
+    ACTION_OPEN_ROOM      = "open_room"
+    ACTION_ADD_SERVICE    = "add_service"
+    ACTION_STOP_SERVICE   = "stop_service"
+    ACTION_ADD_FOOD       = "add_food"
+    ACTION_ADD_OUTSIDE    = "add_outside"
+    ACTION_REMOVE_ITEM    = "remove_item"
+    ACTION_MERGE_TABLE    = "merge_table"
+    ACTION_UNMERGE_TABLE  = "unmerge_table"
+    ACTION_CHECKOUT       = "checkout"
+    ACTION_DELETE_REVENUE = "delete_revenue"
+
+    ACTION_CHOICES = [
+        (ACTION_OPEN_ROOM,      "Mở phòng"),
+        (ACTION_ADD_SERVICE,    "Thêm dịch vụ"),
+        (ACTION_STOP_SERVICE,   "Dừng dịch vụ"),
+        (ACTION_ADD_FOOD,       "Gọi đồ ăn/uống"),
+        (ACTION_ADD_OUTSIDE,    "Thêm mua ngoài"),
+        (ACTION_REMOVE_ITEM,    "Xóa món"),
+        (ACTION_MERGE_TABLE,    "Gộp bàn"),
+        (ACTION_UNMERGE_TABLE,  "Hủy gộp bàn"),
+        (ACTION_CHECKOUT,       "Thanh toán"),
+        (ACTION_DELETE_REVENUE, "Xóa doanh thu"),
+    ]
+
+    session     = models.ForeignKey(RoomSession, on_delete=models.SET_NULL, null=True, blank=True, related_name="activity_logs")
+    action      = models.CharField(max_length=30, choices=ACTION_CHOICES)
+    user        = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="activity_logs")
+    description = models.TextField()
+    created_at  = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"[{self.get_action_display()}] {self.user} — {self.created_at:%d/%m %H:%M}"
+
+    @classmethod
+    def log(cls, action, user, description, session=None):
+        cls.objects.create(action=action, user=user, description=description, session=session)

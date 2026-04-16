@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Xóa dữ liệu doanh thu{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+  <a href="{% url 'daily_report' %}" class="btn btn-outline-secondary btn-sm me-3">
+    <i class="bi bi-arrow-left"></i>
+  </a>
+  <h4 class="fw-bold mb-0 text-danger"><i class="bi bi-trash me-2"></i>Xóa dữ liệu doanh thu</h4>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-md-7 col-lg-5">
+    <div class="alert alert-danger">
+      <i class="bi bi-exclamation-triangle-fill me-2"></i>
+      <strong>Cảnh báo!</strong> Hành động này sẽ <strong>xóa vĩnh viễn</strong> tất cả hóa đơn
+      trong khoảng thời gian đã chọn. Dữ liệu <strong>không thể khôi phục</strong>.
+    </div>
+
+    <div class="card">
+      <div class="card-header bg-danger text-white fw-bold">
+        <i class="bi bi-trash me-2"></i>Chọn khoảng thời gian cần xóa
+      </div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Từ ngày</label>
+            <input type="date" name="date_from" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Đến ngày</label>
+            <input type="date" name="date_to" class="form-control" required>
+          </div>
+          <div class="form-check mb-4 border border-danger rounded p-3">
+            <input class="form-check-input" type="checkbox" name="confirm" value="yes" id="confirmCheck" required>
+            <label class="form-check-label fw-semibold text-danger" for="confirmCheck">
+              Tôi xác nhận muốn xóa vĩnh viễn dữ liệu hóa đơn trong khoảng thời gian này.
+            </label>
+          </div>
+          <button type="submit" class="btn btn-danger w-100 fw-bold"
+            onclick="return confirm('Bạn chắc chắn muốn xóa? Hành động này không thể hoàn tác!')">
+            <i class="bi bi-trash-fill me-2"></i>Xóa dữ liệu
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

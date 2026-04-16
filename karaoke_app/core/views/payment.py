@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils import timezone
-from core.models import RoomSession, Invoice, Config
+from core.models import RoomSession, Invoice, Config, ActivityLog
 from core.decorators import login_required_custom, cashier_required
 from core.pricing import calculate_session_total
 from core.printing import print_invoice, get_invoice_text
@@ -104,6 +104,10 @@ def checkout_view(request, session_id):
             else:
                 messages.warning(request, f"Thanh toán thành công nhưng in thất bại: {msg}")
 
+        ActivityLog.log(ActivityLog.ACTION_CHECKOUT, request.user,
+                        f"Thanh toán phòng {session.room.name}: {total_after_discount:,}đ "
+                        f"({invoice.get_payment_method_display()})",
+                        session=session)
         messages.success(request, f"Thanh toán thành công! Tổng: {total_after_discount:,}đ")
         return redirect("invoice_detail", invoice_id=invoice.id)
 

@@ -29,13 +29,13 @@
 </div>
 
 <div class="row g-3">
-  <!-- CỘT TRÁI: Dịch vụ mic + Gọi thêm -->
+  <!-- CỘT TRÁI: Dịch vụ + Gọi thêm -->
   <div class="col-12 col-lg-8">
 
-    <!-- Dịch vụ mic đang chạy -->
+    <!-- Dịch vụ đang chạy -->
     <div class="card mb-3">
       <div class="card-header d-flex justify-content-between align-items-center bg-dark text-white">
-        <span><i class="bi bi-headset me-2"></i>Dịch vụ mic</span>
+        <span><i class="bi bi-headset me-2"></i>Dịch vụ</span>
         <button class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#addServiceModal">
           <i class="bi bi-plus-lg me-1"></i>Thêm dịch vụ
         </button>
@@ -102,7 +102,7 @@
         {% else %}
         <div class="text-center text-muted py-4">
           <i class="bi bi-headset" style="font-size:2rem"></i>
-          <p class="mt-2 mb-0">Chưa có dịch vụ mic nào. Nhấn "Thêm dịch vụ" để bắt đầu.</p>
+          <p class="mt-2 mb-0">Chưa có dịch vụ nào. Nhấn "Thêm dịch vụ" để bắt đầu.</p>
         </div>
         {% endif %}
       </div>
@@ -191,6 +191,47 @@
     </div>
   </div>
 
+  <!-- Lịch sử hoạt động -->
+    <div class="card mb-3">
+      <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-clock-history me-2"></i>Lịch sử thao tác</span>
+        <button class="btn btn-sm btn-outline-light" data-bs-toggle="collapse" data-bs-target="#logCollapse">
+          <i class="bi bi-chevron-down"></i>
+        </button>
+      </div>
+      <div class="collapse" id="logCollapse">
+        <div class="card-body p-0">
+          {% if activity_logs %}
+          <ul class="list-group list-group-flush">
+            {% for log in activity_logs %}
+            <li class="list-group-item py-2 px-3 small">
+              <div class="d-flex justify-content-between">
+                <span>
+                  <span class="badge
+                    {% if log.action == 'open_room' %}bg-success
+                    {% elif log.action == 'checkout' %}bg-primary
+                    {% elif log.action == 'stop_service' or log.action == 'remove_item' %}bg-danger
+                    {% elif log.action == 'merge_table' or log.action == 'unmerge_table' %}bg-warning text-dark
+                    {% else %}bg-secondary{% endif %} me-1">
+                    {{ log.get_action_display }}
+                  </span>
+                  {{ log.description }}
+                </span>
+                <span class="text-muted ms-2 text-nowrap">
+                  {{ log.user.get_display_name }} · {{ log.created_at|date:"H:i" }}
+                </span>
+              </div>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <div class="text-center text-muted py-3 small">Chưa có thao tác nào.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- CỘT PHẢI: Tạm tính -->
   <div class="col-12 col-lg-4">
     <div class="card border-success sticky-top" style="top: 80px;">
@@ -200,7 +241,7 @@
       <div class="card-body">
         <table class="table table-sm mb-3">
           <tr>
-            <td>Dịch vụ mic</td>
+            <td>Dịch vụ</td>
             <td class="text-end fw-bold" id="total-service">{{ totals.total_service|floatformat:0 }}đ</td>
           </tr>
           <tr>
