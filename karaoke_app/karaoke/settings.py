@@ -1,7 +1,11 @@
 import os
+import sys
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# ─── Frozen (PyInstaller exe) hay development? ────────────────────────────────
+IS_FROZEN = getattr(sys, "frozen", False)
 
 SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",
@@ -56,7 +60,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "karaoke.wsgi.application"
 
-# Database — hỗ trợ volume Docker (/data/db) hoặc thư mục project
+# ─── Database ─────────────────────────────────────────────────────────────────
+# Ưu tiên: biến môi trường DB_DIR > thư mục project
 _db_dir = Path(os.environ.get("DB_DIR", str(BASE_DIR)))
 DATABASES = {
     "default": {
@@ -66,7 +71,6 @@ DATABASES = {
 }
 
 AUTH_USER_MODEL = "core.User"
-
 AUTH_PASSWORD_VALIDATORS = []
 
 LANGUAGE_CODE = "vi"
@@ -74,10 +78,17 @@ TIME_ZONE = "Asia/Ho_Chi_Minh"
 USE_I18N = True
 USE_TZ = True
 
+# ─── Static files ─────────────────────────────────────────────────────────────
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [BASE_DIR / "static"]
-# Khi chạy Docker, collectstatic sẽ copy vào /data/static
-STATIC_ROOT = os.environ.get("STATIC_ROOT", str(BASE_DIR / "staticfiles"))
+
+if IS_FROZEN:
+    # Khi chạy từ exe: serve từ staticfiles/ đã được collectstatic
+    STATIC_ROOT = os.environ.get("STATIC_ROOT", str(BASE_DIR / "staticfiles"))
+    STATICFILES_DIRS = []
+else:
+    # Development: serve từ static/ source
+    STATICFILES_DIRS = [BASE_DIR / "static"]
+    STATIC_ROOT = os.environ.get("STATIC_ROOT", str(BASE_DIR / "staticfiles"))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
