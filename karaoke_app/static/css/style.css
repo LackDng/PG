@@ -1,0 +1,81 @@
+/* ─── Karaoke Manager Styles ─── */
+
+body {
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: #f5f5f7;
+  font-size: 0.95rem;
+}
+
+/* Navbar */
+.navbar-brand { font-size: 1.1rem; letter-spacing: 0.5px; }
+
+/* Room Cards */
+.room-card {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  border-width: 2px !important;
+}
+.room-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+
+/* Timer badge */
+.timer-display {
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  min-width: 80px;
+  display: inline-block;
+}
+
+/* Status colors */
+.status-running { color: #dc3545; }
+.status-stopped { color: #6c757d; }
+
+/* Tables */
+.table th { font-weight: 600; font-size: 0.85rem; letter-spacing: 0.3px; }
+.table td { vertical-align: middle; }
+
+/* Cards */
+.card { border-radius: 10px; }
+.card-header { font-weight: 600; border-radius: 10px 10px 0 0 !important; }
+
+/* Sticky total card on room detail */
+@media (min-width: 992px) {
+  .sticky-top { top: 70px !important; }
+}
+
+/* Buttons */
+.btn { font-weight: 500; border-radius: 8px; }
+.btn-sm { border-radius: 6px; }
+
+/* Invoice preview */
+pre { font-size: 0.8rem; line-height: 1.6; }
+
+/* Alert */
+.alert { border-radius: 8px; }
+
+/* Dashboard room grid */
+#room-grid .card { min-height: 150px; }
+
+/* Modal */
+.modal-content { border-radius: 12px; }
+.modal-header { border-radius: 12px 12px 0 0; }
+
+/* Menu item select buttons */
+.menu-select-btn.active {
+  border-color: #0d6efd !important;
+}
+
+/* Form controls */
+.form-control, .form-select { border-radius: 8px; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: #aaa; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #888; }
+
+/* Toast / flash messages */
+.alert-error { background-color: #f8d7da; color: #842029; border-color: #f5c2c7; }
+.alert-success { background-color: #d1e7dd; color: #0f5132; border-color: #badbcc; }

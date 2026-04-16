@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Quản lý nhân viên{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="fw-bold mb-0"><i class="bi bi-people me-2"></i>Quản lý nhân viên</h4>
+  <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addUserModal">
+    <i class="bi bi-person-plus me-1"></i>Thêm tài khoản
+  </button>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead class="table-dark">
+        <tr><th>#</th><th>Tên đăng nhập</th><th>Tên hiển thị</th><th>Vai trò</th><th>Kích hoạt</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>{{ u.id }}</td>
+          <td class="fw-semibold">{{ u.username }}</td>
+          <td>{{ u.display_name|default:"—" }}</td>
+          <td>
+            {% if u.role == 'admin' %}<span class="badge bg-danger">Quản trị viên</span>
+            {% elif u.role == 'cashier' %}<span class="badge bg-info">Thu ngân</span>
+            {% elif u.role == 'accountant' %}<span class="badge bg-warning text-dark">Kế toán</span>
+            {% else %}<span class="badge bg-secondary">Nhân viên</span>{% endif %}
+          </td>
+          <td>{% if u.is_active %}<span class="badge bg-success">Có</span>{% else %}<span class="badge bg-secondary">Không</span>{% endif %}</td>
+          <td>
+            {% if u != request.user %}
+            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editUser{{ u.id }}">
+              <i class="bi bi-pencil"></i>
+            </button>
+            {% endif %}
+          </td>
+        </tr>
+
+        <div class="modal fade" id="editUser{{ u.id }}" tabindex="-1">
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">Sửa: {{ u.username }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <form method="post" action="{% url 'edit_user' u.id %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                  <div class="mb-3"><label class="form-label">Tên hiển thị</label>
+                    <input type="text" name="display_name" class="form-control" value="{{ u.display_name }}"></div>
+                  <div class="mb-3"><label class="form-label">Vai trò</label>
+                    <select name="role" class="form-select">
+                      <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>Quản trị viên</option>
+                      <option value="staff" {% if u.role == 'staff' %}selected{% endif %}>Nhân viên</option>
+                      <option value="cashier" {% if u.role == 'cashier' %}selected{% endif %}>Thu ngân</option>
+                      <option value="accountant" {% if u.role == 'accountant' %}selected{% endif %}>Kế toán</option>
+                    </select>
+                  </div>
+                  <div class="mb-3"><label class="form-label">Mật khẩu mới <span class="text-muted small">(bỏ trống = không đổi)</span></label>
+                    <input type="password" name="password" class="form-control"></div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="is_active" value="1" {% if u.is_active %}checked{% endif %}>
+                    <label class="form-check-label">Kích hoạt</label>
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                  <button type="submit" class="btn btn-primary">Lưu</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Thêm tài khoản</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{% url 'add_user' %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3"><label class="form-label">Tên đăng nhập</label>
+            <input type="text" name="username" class="form-control" required></div>
+          <div class="mb-3"><label class="form-label">Tên hiển thị</label>
+            <input type="text" name="display_name" class="form-control"></div>
+          <div class="mb-3"><label class="form-label">Mật khẩu</label>
+            <input type="password" name="password" class="form-control" required></div>
+          <div class="mb-3"><label class="form-label">Vai trò</label>
+            <select name="role" class="form-select">
+              <option value="staff">Nhân viên</option>
+              <option value="cashier">Thu ngân</option>
+              <option value="accountant">Kế toán</option>
+              <option value="admin">Quản trị viên</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" class="btn btn-primary">Tạo tài khoản</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

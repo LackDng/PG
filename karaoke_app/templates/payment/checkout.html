@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block title %}Thanh toán - {{ session.room.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+  <a href="{% url 'room_detail' session.room.id %}" class="btn btn-outline-secondary btn-sm me-3">
+    <i class="bi bi-arrow-left"></i>
+  </a>
+  <h4 class="mb-0 fw-bold"><i class="bi bi-cash-coin me-2"></i>Thanh toán — {{ session.room.name }}</h4>
+</div>
+
+<form method="post" id="checkoutForm">
+  {% csrf_token %}
+  <div class="row g-3">
+    <!-- Danh sách dịch vụ -->
+    <div class="col-12 col-lg-7">
+
+      {% if merged_sessions %}
+      <div class="alert alert-info mb-3">
+        <i class="bi bi-info-circle me-1"></i>
+        Hóa đơn gộp bao gồm:
+        <strong>{{ session.room.name }}</strong>
+        {% for ms in merged_sessions %}+ <strong>{{ ms.room.name }}</strong>{% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Dịch vụ mic -->
+      <div class="card mb-3">
+        <div class="card-header bg-dark text-white"><i class="bi bi-headset me-2"></i>Dịch vụ mic</div>
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead class="table-light">
+              <tr><th>Dịch vụ</th><th>Bắt đầu</th><th>Thời gian</th><th class="text-end">Tiền</th></tr>
+            </thead>
+            <tbody>
+              {% for so in service_orders %}
+              <tr>
+                <td>{{ so.service_name }}</td>
+                <td class="small text-muted">{{ so.started_at|date:"H:i" }}</td>
+                <td class="small">{{ so.get_duration_minutes }}p</td>
+                <td class="text-end fw-bold">{{ so.calculate_cost|floatformat:0 }}đ</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" class="text-center text-muted">Không có dịch vụ mic</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Đồ ăn/uống -->
+      {% if order_items %}
+      <div class="card mb-3">
+        <div class="card-header bg-dark text-white"><i class="bi bi-cup-straw me-2"></i>Đồ ăn / Uống / Mua ngoài</div>
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead class="table-light">
+              <tr><th>Tên</th><th class="text-center">SL</th><th class="text-end">Đơn giá</th><th class="text-end">Thành tiền</th></tr>
+            </thead>
+            <tbody>
+              {% for item in order_items %}
+              <tr>
+                <td>
+                  {{ item.name }}
+                  {% if item.item_type == 'outside' %}<span class="badge bg-warning text-dark ms-1">Ngoài</span>{% endif %}
+                </td>
+                <td class="text-center">{{ item.quantity }}</td>
+                <td class="text-end">{{ item.unit_price|floatformat:0 }}đ</td>
+                <td class="text-end fw-bold">{{ item.subtotal|floatformat:0 }}đ</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Cột phải: Tính tiền -->
+    <div class="col-12 col-lg-5">
+      <div class="card border-success">
+        <div class="card-header bg-success text-white fw-bold">
+          <i class="bi bi-calculator me-2"></i>Tính tiền
+        </div>
+        <div class="card-body">
+
+          <!-- Tổng tiền -->
+          <table class="table table-sm mb-3">
+            <tr>
+              <td>Dịch vụ mic</td>
+              <td class="text-end">{{ totals.total_service|floatformat:0 }}đ</td>
+            </tr>
+            <tr>
+              <td>Đồ ăn/uống</td>
+              <td class="text-end">{{ totals.total_food|floatformat:0 }}đ</td>
+            </tr>
+            <tr>
+              <td>Mua ngoài</td>
+              <td class="text-end">{{ totals.total_outside|floatformat:0 }}đ</td>
+            </tr>
+            <tr class="fw-bold table-light">
+              <td>Tổng cộng</td>
+              <td class="text-end" id="subtotalDisplay">{{ totals.subtotal|floatformat:0 }}đ</td>
+            </tr>
+          </table>
+
+          {% if user.can_apply_discount %}
+          <!-- Giảm giá -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Giảm giá</label>
+            <div class="d-flex gap-2 flex-wrap" id="discountBtns">
+              {% for val, label in discount_choices %}
+              <button type="button" class="btn btn-sm btn-outline-warning discount-btn" data-value="{{ val }}">
+                {{ label }}
+              </button>
+              {% endfor %}
+            </div>
+            <input type="hidden" name="discount_percent" id="discountInput" value="0">
+            <div class="mt-2 small text-muted" id="discountLine" style="display:none">
+              Giảm: <span id="discountAmount" class="text-danger fw-bold"></span>
+            </div>
+          </div>
+          {% else %}
+          <input type="hidden" name="discount_percent" value="0">
+          {% endif %}
+
+          <!-- Tip -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Tip <span class="text-muted small">(tùy chọn)</span></label>
+            <div class="input-group">
+              <input type="number" name="tip" class="form-control" value="0" min="0" step="10000">
+              <span class="input-group-text">đ</span>
+            </div>
+          </div>
+
+          <!-- Hình thức thanh toán -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Hình thức thanh toán</label>
+            <div class="btn-group w-100" role="group">
+              <input type="radio" class="btn-check" name="payment_method" id="pmCash" value="cash" checked>
+              <label class="btn btn-outline-success" for="pmCash"><i class="bi bi-cash me-1"></i>Tiền mặt</label>
+
+              <input type="radio" class="btn-check" name="payment_method" id="pmTransfer" value="transfer">
+              <label class="btn btn-outline-info" for="pmTransfer"><i class="bi bi-phone me-1"></i>Chuyển khoản</label>
+
+              <input type="radio" class="btn-check" name="payment_method" id="pmMixed" value="mixed">
+              <label class="btn btn-outline-secondary" for="pmMixed"><i class="bi bi-arrow-left-right me-1"></i>Kết hợp</label>
+            </div>
+          </div>
+
+          <!-- Kết hợp (hidden by default) -->
+          <div id="mixedDiv" class="mb-3 d-none">
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label small">Tiền mặt (đ)</label>
+                <input type="number" name="cash_amount" id="cashAmount" class="form-control" value="0" min="0">
+              </div>
+              <div class="col-6">
+                <label class="form-label small">Chuyển khoản (đ)</label>
+                <input type="number" name="transfer_amount" id="transferAmount" class="form-control" value="0" min="0">
+              </div>
+            </div>
+          </div>
+
+          <!-- Tổng thanh toán -->
+          <div class="alert alert-success text-center mb-3">
+            <div class="small text-muted">TỔNG THANH TOÁN</div>
+            <div class="fw-bold fs-3" id="finalTotal">{{ totals.subtotal|floatformat:0 }}đ</div>
+          </div>
+
+          <!-- Máy in -->
+          <div class="card bg-light mb-3">
+            <div class="card-body py-2 px-3">
+              <div class="form-check mb-1">
+                <input class="form-check-input" type="checkbox" name="do_print" value="1" id="doPrint">
+                <label class="form-check-label small fw-semibold" for="doPrint">
+                  <i class="bi bi-printer me-1"></i>In hóa đơn sau khi thanh toán
+                </label>
+              </div>
+              <div id="printerConfig">
+                <div class="row g-1">
+                  <div class="col-8">
+                    <input type="text" name="printer_ip" class="form-control form-control-sm"
+                      placeholder="IP máy in" value="{{ printer_ip }}">
+                  </div>
+                  <div class="col-4">
+                    <input type="number" name="printer_port" class="form-control form-control-sm"
+                      value="{{ printer_port }}" placeholder="9100">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-success w-100 btn-lg fw-bold">
+            <i class="bi bi-check-circle me-2"></i>Xác nhận thanh toán
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const subtotal = {{ totals.subtotal }};
+
+function updateTotal() {
+  const discountPct = parseInt(document.getElementById('discountInput').value) || 0;
+  const discountAmt = Math.round(subtotal * discountPct / 100);
+  const afterDiscount = subtotal - discountAmt;
+
+  document.getElementById('finalTotal').textContent = afterDiscount.toLocaleString('vi-VN') + 'đ';
+
+  if (discountPct > 0) {
+    document.getElementById('discountLine').style.display = '';
+    document.getElementById('discountAmount').textContent = '-' + discountAmt.toLocaleString('vi-VN') + 'đ';
+  } else {
+    document.getElementById('discountLine').style.display = 'none';
+  }
+}
+
+// Discount buttons
+document.querySelectorAll('.discount-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.discount-btn').forEach(b => {
+      b.classList.remove('btn-warning');
+      b.classList.add('btn-outline-warning');
+    });
+    this.classList.remove('btn-outline-warning');
+    this.classList.add('btn-warning');
+    document.getElementById('discountInput').value = this.dataset.value;
+    updateTotal();
+  });
+});
+
+// Payment method toggle
+document.querySelectorAll('input[name="payment_method"]').forEach(radio => {
+  radio.addEventListener('change', function() {
+    document.getElementById('mixedDiv').classList.toggle('d-none', this.value !== 'mixed');
+  });
+});
+</script>
+{% endblock %}

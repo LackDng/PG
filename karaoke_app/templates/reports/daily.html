@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Báo cáo ngày {{ report_date }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <h4 class="mb-0 fw-bold"><i class="bi bi-bar-chart me-2"></i>Báo cáo ngày</h4>
+  <form class="d-flex gap-2" method="get">
+    <input type="date" name="date" value="{{ report_date_str }}" class="form-control form-control-sm">
+    <button type="submit" class="btn btn-primary btn-sm">Xem</button>
+  </form>
+</div>
+
+<h6 class="text-muted mb-3">Ngày: <strong>{{ report_date|date:"d/m/Y" }}</strong> — {{ invoice_count }} hóa đơn</h6>
+
+<!-- Tổng quan -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card border-success">
+      <div class="card-body text-center">
+        <div class="text-muted small">Tổng doanh thu</div>
+        <div class="fw-bold fs-5 text-success">{{ total_revenue|floatformat:0 }}đ</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-primary">
+      <div class="card-body text-center">
+        <div class="text-muted small">Tiền mặt</div>
+        <div class="fw-bold fs-5 text-primary">{{ total_cash|floatformat:0 }}đ</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-info">
+      <div class="card-body text-center">
+        <div class="text-muted small">Chuyển khoản</div>
+        <div class="fw-bold fs-5 text-info">{{ total_transfer|floatformat:0 }}đ</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-warning">
+      <div class="card-body text-center">
+        <div class="text-muted small">Tip</div>
+        <div class="fw-bold fs-5 text-warning">{{ total_tip|floatformat:0 }}đ</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Phân loại doanh thu -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card bg-light">
+      <div class="card-body text-center">
+        <div class="text-muted small"><i class="bi bi-headset me-1"></i>Dịch vụ mic</div>
+        <div class="fw-bold">{{ total_service|floatformat:0 }}đ</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card bg-light">
+      <div class="card-body text-center">
+        <div class="text-muted small"><i class="bi bi-cup-straw me-1"></i>Đồ ăn/uống</div>
+        <div class="fw-bold">{{ total_food|floatformat:0 }}đ</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card bg-light">
+      <div class="card-body text-center">
+        <div class="text-muted small"><i class="bi bi-bag me-1"></i>Mua ngoài</div>
+        <div class="fw-bold">{{ total_outside|floatformat:0 }}đ</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if total_discount > 0 %}
+<div class="alert alert-warning">
+  <i class="bi bi-tag me-1"></i>Tổng giảm giá trong ngày: <strong>{{ total_discount|floatformat:0 }}đ</strong>
+</div>
+{% endif %}
+
+<!-- Chi tiết từng phòng -->
+{% if room_summaries %}
+<div class="card mb-4">
+  <div class="card-header bg-dark text-white fw-semibold">Doanh thu theo phòng</div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Phòng</th>
+          <th class="text-center">Số lần</th>
+          <th class="text-end">Mic</th>
+          <th class="text-end">Đồ ăn/uống</th>
+          <th class="text-end">Mua ngoài</th>
+          <th class="text-end">Tổng</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for rs in room_summaries %}
+        <tr>
+          <td class="fw-semibold">{{ rs.room_name }}</td>
+          <td class="text-center">{{ rs.count }}</td>
+          <td class="text-end">{{ rs.service|floatformat:0 }}đ</td>
+          <td class="text-end">{{ rs.food|floatformat:0 }}đ</td>
+          <td class="text-end">{{ rs.outside|floatformat:0 }}đ</td>
+          <td class="text-end fw-bold text-success">{{ rs.total|floatformat:0 }}đ</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Danh sách hóa đơn -->
+<div class="card">
+  <div class="card-header bg-dark text-white fw-semibold">Danh sách hóa đơn</div>
+  <div class="table-responsive">
+    <table class="table table-hover table-sm mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>#</th>
+          <th>Phòng</th>
+          <th>Giờ</th>
+          <th class="text-end">Mic</th>
+          <th class="text-end">Đồ ăn</th>
+          <th class="text-end">Giảm giá</th>
+          <th class="text-end">Tổng</th>
+          <th>Thanh toán</th>
+          <th>Thu ngân</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in invoices %}
+        <tr>
+          <td><a href="{% url 'invoice_detail' inv.id %}">#{{ inv.id }}</a></td>
+          <td>{{ inv.session.room.name }}</td>
+          <td class="small text-muted">{{ inv.created_at|date:"H:i" }}</td>
+          <td class="text-end">{{ inv.total_service|floatformat:0 }}đ</td>
+          <td class="text-end">{{ inv.total_food|floatformat:0 }}đ</td>
+          <td class="text-end text-danger">
+            {% if inv.discount_percent > 0 %}-{{ inv.discount_amount|floatformat:0 }}đ ({{ inv.discount_percent }}%){% else %}—{% endif %}
+          </td>
+          <td class="text-end fw-bold text-success">{{ inv.total_after_discount|floatformat:0 }}đ</td>
+          <td>
+            {% if inv.payment_method == 'cash' %}
+              <span class="badge bg-success">Tiền mặt</span>
+            {% elif inv.payment_method == 'transfer' %}
+              <span class="badge bg-info">CK</span>
+            {% else %}
+              <span class="badge bg-secondary">Kết hợp</span>
+            {% endif %}
+          </td>
+          <td class="small">{{ inv.created_by.get_display_name|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" class="text-center text-muted py-4">Không có hóa đơn nào trong ngày này.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

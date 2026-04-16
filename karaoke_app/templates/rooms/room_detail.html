@@ -1,0 +1,444 @@
+{% extends "base.html" %}
+{% block title %}{{ room.name }} - Chi tiết{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm me-2">
+      <i class="bi bi-arrow-left"></i>
+    </a>
+    <span class="fw-bold fs-5">
+      <i class="bi bi-door-closed-fill text-danger me-1"></i>{{ room.name }}
+    </span>
+    {% if merged_sessions %}
+      <span class="badge bg-info ms-2">Đã gộp với:
+        {% for ms in merged_sessions %}{{ ms.room.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+      </span>
+    {% endif %}
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <div class="text-muted small align-self-center">
+      Mở lúc {{ session.opened_at|date:"H:i d/m/Y" }}
+    </div>
+    {% if user.can_checkout %}
+    <a href="{% url 'checkout' session.id %}" class="btn btn-success">
+      <i class="bi bi-cash-coin me-1"></i>Thanh toán
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- CỘT TRÁI: Dịch vụ mic + Gọi thêm -->
+  <div class="col-12 col-lg-8">
+
+    <!-- Dịch vụ mic đang chạy -->
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center bg-dark text-white">
+        <span><i class="bi bi-headset me-2"></i>Dịch vụ mic</span>
+        <button class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#addServiceModal">
+          <i class="bi bi-plus-lg me-1"></i>Thêm dịch vụ
+        </button>
+      </div>
+      <div class="card-body p-0">
+        {% if service_breakdowns %}
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Dịch vụ</th>
+                <th>Bắt đầu</th>
+                <th class="text-center">Thời gian</th>
+                <th class="text-end">Tiền</th>
+                <th class="text-center">Trạng thái</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="service-table">
+              {% for bd in service_breakdowns %}
+              <tr data-service-id="{{ bd.order.id }}"
+                  data-started="{{ bd.order.started_at.isoformat }}"
+                  data-base-price="{{ bd.order.base_price }}"
+                  data-status="{{ bd.order.status }}">
+                <td class="fw-semibold">{{ bd.order.service_name }}</td>
+                <td class="text-muted small">{{ bd.order.started_at|date:"H:i" }}</td>
+                <td class="text-center">
+                  <span class="timer-display badge bg-secondary" data-started="{{ bd.order.started_at.isoformat }}">
+                    {{ bd.duration_str }}
+                  </span>
+                </td>
+                <td class="text-end fw-bold service-cost" data-id="{{ bd.order.id }}">
+                  {{ bd.total|floatformat:0 }}đ
+                </td>
+                <td class="text-center">
+                  {% if bd.status == 'free' %}
+                    <span class="badge bg-success">Miễn phí</span>
+                  {% elif bd.status == 'package' %}
+                    <span class="badge bg-primary">Gói chuẩn</span>
+                  {% elif bd.status == 'grace' %}
+                    <span class="badge bg-info">Grace</span>
+                  {% elif bd.status == 'overtime' %}
+                    <span class="badge bg-danger">Phát sinh</span>
+                  {% endif %}
+                  {% if bd.order.status == 'stopped' %}
+                    <span class="badge bg-dark">Đã dừng</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if bd.order.status == 'running' %}
+                  <form method="post" action="{% url 'stop_service_order' bd.order.id %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Dừng">
+                      <i class="bi bi-stop-fill"></i>
+                    </button>
+                  </form>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4">
+          <i class="bi bi-headset" style="font-size:2rem"></i>
+          <p class="mt-2 mb-0">Chưa có dịch vụ mic nào. Nhấn "Thêm dịch vụ" để bắt đầu.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Đồ ăn / uống -->
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center bg-dark text-white">
+        <span><i class="bi bi-cup-straw me-2"></i>Đồ ăn / Uống</span>
+        <button class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#addFoodModal">
+          <i class="bi bi-plus-lg me-1"></i>Gọi thêm
+        </button>
+      </div>
+      <div class="card-body p-0">
+        {% if order_items_menu %}
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr><th>Tên</th><th class="text-center">SL</th><th class="text-end">Đơn giá</th><th class="text-end">Thành tiền</th><th></th></tr>
+            </thead>
+            <tbody>
+              {% for item in order_items_menu %}
+              <tr>
+                <td>{{ item.name }}</td>
+                <td class="text-center">{{ item.quantity }}</td>
+                <td class="text-end">{{ item.unit_price|floatformat:0 }}đ</td>
+                <td class="text-end fw-bold">{{ item.subtotal|floatformat:0 }}đ</td>
+                <td>
+                  <form method="post" action="{% url 'remove_order_item' item.id %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Xóa món này?')">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-3"><small>Chưa có đồ ăn/uống.</small></div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Dịch vụ mua ngoài -->
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center bg-dark text-white">
+        <span><i class="bi bi-bag me-2"></i>Mua ngoài</span>
+        <button class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#addOutsideModal">
+          <i class="bi bi-plus-lg me-1"></i>Thêm
+        </button>
+      </div>
+      <div class="card-body p-0">
+        {% if order_items_outside %}
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr><th>Tên</th><th class="text-center">SL</th><th class="text-end">Đơn giá</th><th class="text-end">Thành tiền</th><th></th></tr>
+            </thead>
+            <tbody>
+              {% for item in order_items_outside %}
+              <tr>
+                <td>{{ item.name }}</td>
+                <td class="text-center">{{ item.quantity }}</td>
+                <td class="text-end">{{ item.unit_price|floatformat:0 }}đ</td>
+                <td class="text-end fw-bold">{{ item.subtotal|floatformat:0 }}đ</td>
+                <td>
+                  <form method="post" action="{% url 'remove_order_item' item.id %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Xóa?')">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-3"><small>Chưa có dịch vụ mua ngoài.</small></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- CỘT PHẢI: Tạm tính -->
+  <div class="col-12 col-lg-4">
+    <div class="card border-success sticky-top" style="top: 80px;">
+      <div class="card-header bg-success text-white">
+        <i class="bi bi-receipt me-2"></i>Tạm tính
+      </div>
+      <div class="card-body">
+        <table class="table table-sm mb-3">
+          <tr>
+            <td>Dịch vụ mic</td>
+            <td class="text-end fw-bold" id="total-service">{{ totals.total_service|floatformat:0 }}đ</td>
+          </tr>
+          <tr>
+            <td>Đồ ăn/uống</td>
+            <td class="text-end fw-bold">{{ totals.total_food|floatformat:0 }}đ</td>
+          </tr>
+          <tr>
+            <td>Mua ngoài</td>
+            <td class="text-end fw-bold">{{ totals.total_outside|floatformat:0 }}đ</td>
+          </tr>
+          <tr class="table-success fw-bold">
+            <td>TỔNG CỘNG</td>
+            <td class="text-end fs-5" id="total-all">{{ totals.subtotal|floatformat:0 }}đ</td>
+          </tr>
+        </table>
+
+        {% if merged_sessions %}
+        <div class="alert alert-info small py-2">
+          <i class="bi bi-info-circle me-1"></i>
+          Đã bao gồm:
+          {% for ms in merged_sessions %}
+          <strong>{{ ms.room.name }}</strong>{% if not forloop.last %},{% endif %}
+          {% endfor %}
+          <form method="post" action="{% url 'unmerge_table' merged_sessions.0.id %}" class="d-inline ms-2">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-danger py-0" onclick="return confirm('Hủy gộp bàn?')">
+              Hủy gộp
+            </button>
+          </form>
+        </div>
+        {% endif %}
+
+        {% if user.can_checkout %}
+        <a href="{% url 'checkout' session.id %}" class="btn btn-success w-100 btn-lg">
+          <i class="bi bi-cash-coin me-2"></i>Thanh toán
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Thêm dịch vụ mic -->
+<div class="modal fade" id="addServiceModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-headset me-2"></i>Thêm dịch vụ mic</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{% url 'add_service_order' session.id %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="row g-2">
+            {% for st in service_types %}
+            <div class="col-12">
+              <button type="submit" name="service_type_id" value="{{ st.id }}"
+                class="btn btn-outline-primary w-100 text-start d-flex justify-content-between">
+                <span><i class="bi bi-headset me-2"></i>{{ st.name }}</span>
+                <span class="badge bg-primary">{{ st.base_price|floatformat:0 }}đ/120p</span>
+              </button>
+            </div>
+            {% empty %}
+            <div class="col-12">
+              <div class="alert alert-warning">Chưa có dịch vụ mic. <a href="{% url 'manage_services' %}">Thêm ngay</a></div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Gọi đồ ăn/uống -->
+<div class="modal fade" id="addFoodModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-cup-straw me-2"></i>Gọi đồ ăn/uống</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{% url 'add_menu_item' session.id %}" id="foodForm">
+        {% csrf_token %}
+        <div class="modal-body">
+          <input type="text" class="form-control mb-3" id="searchFood" placeholder="Tìm món...">
+          <div class="row g-2" id="menuGrid">
+            {% for item in menu_items %}
+            <div class="col-6 col-md-4 menu-item-btn">
+              <button type="button"
+                class="btn btn-outline-secondary w-100 text-start menu-select-btn"
+                data-item-id="{{ item.id }}"
+                data-item-name="{{ item.name }}">
+                <div class="fw-semibold small">{{ item.name }}</div>
+                <div class="text-primary small">{{ item.price|floatformat:0 }}đ</div>
+              </button>
+            </div>
+            {% empty %}
+            <div class="col-12">
+              <div class="alert alert-warning">Chưa có menu. <a href="{% url 'manage_menu' %}">Thêm ngay</a></div>
+            </div>
+            {% endfor %}
+          </div>
+          <input type="hidden" name="menu_item_id" id="selectedMenuItemId">
+          <div id="foodQtyDiv" class="mt-3 d-none border rounded p-3 bg-light">
+            <div class="fw-semibold mb-2" id="selectedItemName"></div>
+            <label class="form-label">Số lượng</label>
+            <input type="number" name="quantity" id="foodQty" class="form-control" value="1" min="1">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+          <button type="submit" class="btn btn-primary d-none" id="foodSubmitBtn">
+            <i class="bi bi-check-lg me-1"></i>Thêm món
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Mua ngoài -->
+<div class="modal fade" id="addOutsideModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-bag me-2"></i>Nhập dịch vụ mua ngoài</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{% url 'add_outside_item' session.id %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Tên dịch vụ/món</label>
+            <input type="text" name="name" class="form-control" placeholder="VD: Bia lon, Đồ ăn thêm..." required>
+          </div>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label">Số lượng</label>
+              <input type="number" name="quantity" class="form-control" value="1" min="1">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Đơn giá (đ)</label>
+              <input type="number" name="unit_price" class="form-control" placeholder="50000" min="0" required>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Thêm</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Timer hiển thị thời gian thực cho từng dịch vụ
+function formatDuration(totalSeconds) {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) return `${h}h${String(m).padStart(2,'0')}p${String(s).padStart(2,'0')}s`;
+  return `${String(m).padStart(2,'0')}p${String(s).padStart(2,'0')}s`;
+}
+
+function calcCost(startedAt, basePrice) {
+  const now = new Date();
+  const elapsed = (now - startedAt) / 1000; // seconds
+  const minutes = elapsed / 60;
+  const FREE_MIN = 30, PKG_MIN = 120, GRACE_MIN = 15, BLOCK_MIN = 25, BLOCK_PRICE = 100000;
+
+  if (minutes <= FREE_MIN) return 0;
+  if (minutes <= PKG_MIN) return basePrice;
+
+  const overtime = minutes - PKG_MIN;
+  if (overtime <= GRACE_MIN) return basePrice;
+
+  const billable = overtime - GRACE_MIN;
+  const blocks = Math.ceil(billable / BLOCK_MIN);
+  return basePrice + blocks * BLOCK_PRICE;
+}
+
+function updateTimers() {
+  let totalService = 0;
+  document.querySelectorAll('[data-started]').forEach(el => {
+    const started = new Date(el.dataset.started);
+    const now = new Date();
+    const elapsed = Math.floor((now - started) / 1000);
+
+    if (el.classList.contains('timer-display')) {
+      el.textContent = formatDuration(elapsed);
+    }
+  });
+
+  // Update service costs via API
+  const roomId = {{ room.id }};
+  fetch(`/rooms/${roomId}/status-api/`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.total_service !== undefined) {
+        document.getElementById('total-service').textContent =
+          data.total_service.toLocaleString('vi-VN') + 'đ';
+        document.getElementById('total-all').textContent =
+          data.subtotal.toLocaleString('vi-VN') + 'đ';
+      }
+    })
+    .catch(() => {});
+}
+
+setInterval(updateTimers, 5000);
+updateTimers();
+
+// Menu food selection
+document.querySelectorAll('.menu-select-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.menu-select-btn').forEach(b => b.classList.remove('active', 'btn-primary'));
+    this.classList.add('active', 'btn-primary');
+    this.classList.remove('btn-outline-secondary');
+    document.getElementById('selectedMenuItemId').value = this.dataset.itemId;
+    document.getElementById('selectedItemName').textContent = this.dataset.itemName;
+    document.getElementById('foodQtyDiv').classList.remove('d-none');
+    document.getElementById('foodSubmitBtn').classList.remove('d-none');
+  });
+});
+
+// Search food
+document.getElementById('searchFood').addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  document.querySelectorAll('.menu-item-btn').forEach(div => {
+    const name = div.querySelector('.fw-semibold').textContent.toLowerCase();
+    div.style.display = name.includes(q) ? '' : 'none';
+  });
+});
+</script>
+{% endblock %}
