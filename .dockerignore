@@ -1,9 +1,0 @@
-**/__pycache__
-**/*.pyc
-**/*.pyo
-*.md
-.git
-.gitignore
-.dockerignore
-karaoke_app/db.sqlite3
-karaoke_app/staticfiles/
