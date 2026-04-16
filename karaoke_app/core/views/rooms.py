@@ -305,6 +305,37 @@ def merge_table(request):
 
 
 @staff_required
+def cancel_room(request, session_id):
+    """Hủy phòng khi khách không muốn dùng nữa (không tính tiền, không xuất hóa đơn)."""
+    session = get_object_or_404(RoomSession, pk=session_id, status="open")
+
+    if session.get_all_service_orders().exists():
+        messages.error(request, "Không thể hủy phòng đã có dịch vụ. Hãy dừng tất cả dịch vụ trước hoặc thanh toán.")
+        return redirect("room_detail", room_id=session.room_id)
+
+    if session.get_all_order_items().exists():
+        messages.error(request, "Không thể hủy phòng đã có đồ ăn/uống. Hãy xóa các món trước hoặc thanh toán.")
+        return redirect("room_detail", room_id=session.room_id)
+
+    room = session.room
+    session.status = RoomSession.STATUS_CANCELLED
+    session.closed_at = timezone.now()
+    session.save()
+
+    room.status = Room.STATUS_AVAILABLE
+    room.save()
+
+    ActivityLog.log(
+        ActivityLog.ACTION_CANCEL_ROOM,
+        request.user,
+        f"Hủy phòng {room.name} (khách không sử dụng)",
+        session=session,
+    )
+    messages.success(request, f"Đã hủy phòng {room.name}. Phòng sẵn sàng cho khách mới.")
+    return redirect("dashboard")
+
+
+@staff_required
 def unmerge_table(request, session_id):
     """Hủy gộp bàn."""
     session = get_object_or_404(RoomSession, pk=session_id, status="open")

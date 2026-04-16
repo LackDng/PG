@@ -20,6 +20,11 @@
     <div class="text-muted small align-self-center">
       Mở lúc {{ session.opened_at|date:"H:i d/m/Y" }}
     </div>
+    {% if not service_orders and not order_items_menu and not order_items_outside %}
+    <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#cancelRoomModal">
+      <i class="bi bi-x-circle me-1"></i>Hủy phòng
+    </button>
+    {% endif %}
     {% if user.can_checkout %}
     <a href="{% url 'checkout' session.id %}" class="btn btn-success">
       <i class="bi bi-cash-coin me-1"></i>Thanh toán
@@ -284,12 +289,12 @@
   </div>
 </div>
 
-<!-- Modal: Thêm dịch vụ mic -->
+<!-- Modal: Thêm dịch vụ -->
 <div class="modal fade" id="addServiceModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title"><i class="bi bi-headset me-2"></i>Thêm dịch vụ mic</h5>
+        <h5 class="modal-title"><i class="bi bi-headset me-2"></i>Thêm dịch vụ</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <form method="post" action="{% url 'add_service_order' session.id %}">
@@ -306,7 +311,7 @@
             </div>
             {% empty %}
             <div class="col-12">
-              <div class="alert alert-warning">Chưa có dịch vụ mic. <a href="{% url 'manage_services' %}">Thêm ngay</a></div>
+              <div class="alert alert-warning">Chưa có dịch vụ nào. <a href="{% url 'manage_services' %}">Thêm ngay</a></div>
             </div>
             {% endfor %}
           </div>
@@ -362,6 +367,31 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Hủy phòng -->
+<div class="modal fade" id="cancelRoomModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title"><i class="bi bi-x-circle me-2"></i>Hủy phòng</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Bạn có chắc muốn <strong>hủy phòng {{ room.name }}</strong>?</p>
+        <p class="text-muted small mb-0">Phòng sẽ trở về trạng thái trống, không tính tiền và không xuất hóa đơn.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+        <form method="post" action="{% url 'cancel_room' session.id %}" class="d-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-x-circle me-1"></i>Xác nhận hủy phòng
+          </button>
+        </form>
+      </div>
     </div>
   </div>
 </div>

@@ -25,6 +25,9 @@ urlpatterns = [
     path("sessions/<int:session_id>/add-outside/", rooms.add_outside_item, name="add_outside_item"),
     path("order-items/<int:item_id>/remove/", rooms.remove_order_item, name="remove_order_item"),
 
+    # Cancel room
+    path("sessions/<int:session_id>/cancel/", rooms.cancel_room, name="cancel_room"),
+
     # Table management
     path("merge-table/", rooms.merge_table, name="merge_table"),
     path("sessions/<int:session_id>/unmerge/", rooms.unmerge_table, name="unmerge_table"),

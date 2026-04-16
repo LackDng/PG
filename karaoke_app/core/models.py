@@ -105,10 +105,12 @@ class MenuItem(models.Model):
 class RoomSession(models.Model):
     STATUS_OPEN = "open"
     STATUS_PAID = "paid"
+    STATUS_CANCELLED = "cancelled"
 
     STATUS_CHOICES = [
         (STATUS_OPEN, "Đang mở"),
         (STATUS_PAID, "Đã thanh toán"),
+        (STATUS_CANCELLED, "Đã hủy"),
     ]
 
     room = models.ForeignKey(Room, on_delete=models.PROTECT, related_name="sessions")
@@ -277,6 +279,7 @@ class Config(models.Model):
 
 class ActivityLog(models.Model):
     ACTION_OPEN_ROOM      = "open_room"
+    ACTION_CANCEL_ROOM    = "cancel_room"
     ACTION_ADD_SERVICE    = "add_service"
     ACTION_STOP_SERVICE   = "stop_service"
     ACTION_ADD_FOOD       = "add_food"
@@ -289,6 +292,7 @@ class ActivityLog(models.Model):
 
     ACTION_CHOICES = [
         (ACTION_OPEN_ROOM,      "Mở phòng"),
+        (ACTION_CANCEL_ROOM,    "Hủy phòng"),
         (ACTION_ADD_SERVICE,    "Thêm dịch vụ"),
         (ACTION_STOP_SERVICE,   "Dừng dịch vụ"),
         (ACTION_ADD_FOOD,       "Gọi đồ ăn/uống"),
