@@ -1,11 +1,12 @@
 @echo off
-chcp 65001 > nul
+cd /d "%~dp0"
+
 echo ============================================
 echo   BUILD KARAOKE MANAGER - WINDOWS EXE
 echo ============================================
 echo.
 
-:: Kiểm tra Python
+:: Kiem tra Python
 python --version > nul 2>&1
 if errorlevel 1 (
     echo [LOI] Python chua duoc cai dat hoac chua them vao PATH.
@@ -64,9 +65,6 @@ echo   - Dung luon: chay dist\KaraokeManager\KaraokeManager.exe
 echo   - Tao file cai dat .exe: chay installer.iss bang Inno Setup
 echo   - Chia se ZIP: dist\KaraokeManager_Windows.zip
 echo.
-echo NOTE: Trang thai dang nhap lan dau:
-echo   Ten dang nhap: admin
-echo   Mat khau     : admin123
-echo   (Doi mat khau trong phan Quan tri sau khi dang nhap)
+echo Dang nhap lan dau: admin / admin123
 echo.
 pause
