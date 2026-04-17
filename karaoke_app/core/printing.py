@@ -156,6 +156,28 @@ def _print_invoice_content(p, invoice):
         p.text(f"Tien mat      : {invoice.cash_amount:>14,}d\n")
         p.text(f"Chuyen khoan  : {invoice.transfer_amount:>14,}d\n")
 
+    # QR chuyen khoan tren hoa don chinh thuc
+    bank_bin = Config.get("bank_id", "")
+    bank_account = Config.get("bank_account", "")
+    account_holder = Config.get("account_holder", "")
+
+    if bank_bin and bank_account and invoice.payment_method in ("transfer", "mixed"):
+        try:
+            p.text("=" * 32 + "\n")
+            p.set(align="center")
+            p.text("MA QR CHUYEN KHOAN\n")
+            desc = f"TT {room_name}"
+            transfer_amt = invoice.transfer_amount if invoice.payment_method == "mixed" else invoice.total_after_discount
+            qr_data = _make_vietqr_payload(bank_bin, bank_account, transfer_amt, desc)
+            p.qr(qr_data, native=True, size=6)
+            p.set(align="left")
+            if account_holder:
+                p.text(f"CTK : {account_holder}\n")
+            p.text(f"STK : {bank_account}\n")
+            p.text(f"ST  : {transfer_amt:,}d\n")
+        except Exception:
+            pass
+
     p.text("=" * 32 + "\n")
     p.set(align="center")
     p.text("Cam on quy khach!\n")
