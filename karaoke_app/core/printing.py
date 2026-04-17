@@ -8,8 +8,10 @@ from django.utils import timezone
 try:
     from escpos.printer import Network as EscPosNetwork
     ESCPOS_AVAILABLE = True
-except ImportError:
+except Exception:
+    # FileNotFoundError (capabilities.json) hoặc ImportError đều bắt ở đây
     ESCPOS_AVAILABLE = False
+    EscPosNetwork = None
 
 
 # ── VietQR EMVCo payload generator ───────────────────────────────────────────

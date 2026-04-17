@@ -17,6 +17,8 @@ datas = [
     (os.path.join('karaoke_app', 'core'),          os.path.join('karaoke_app', 'core')),
     # Django built-in templates và static
     *collect_data_files('django', includes=['**/*.html', '**/*.css', '**/*.js']),
+    # escpos capabilities.json (bắt buộc khi import escpos)
+    *collect_data_files('escpos'),
 ]
 
 # ─── Hidden imports Django cần ────────────────────────────────────────────────
