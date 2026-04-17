@@ -60,10 +60,24 @@ hiddenimports = [
     'core.migrations',
     'core.migrations.0001_initial',
     'core.migrations.0002_activitylog',
+    'core.migrations.0003_cancel_room',
+    # Django management commands
+    'django.core.management.commands.migrate',
+    'django.contrib.staticfiles.management.commands.collectstatic',
+    # Django password hashers
+    'django.contrib.auth.hashers',
+    'django.contrib.auth.password_validation',
+    # Django middleware & handlers
+    'django.core.handlers.wsgi',
+    'django.contrib.sessions.middleware',
+    'django.contrib.messages.storage.fallback',
+    'django.contrib.messages.storage.cookie',
+    'django.contrib.messages.storage.session',
     # Third-party
     'openpyxl',
     'openpyxl.styles',
     'openpyxl.utils',
+    'openpyxl.writer.excel',
     'escpos',
     'escpos.printer',
     'PIL',
@@ -73,9 +87,11 @@ hiddenimports = [
     # Django utils
     'django.utils.timezone',
     'django.utils.translation',
+    'django.utils.encoding',
     'sqlparse',
     'asgiref',
     'asgiref.sync',
+    'asgiref.local',
 ]
 
 a = Analysis(
