@@ -26,6 +26,9 @@
     </button>
     {% endif %}
     {% if user.can_checkout %}
+    <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#printCheckModal">
+      <i class="bi bi-printer me-1"></i>In kiểm tra
+    </button>
     <a href="{% url 'checkout' session.id %}" class="btn btn-success">
       <i class="bi bi-cash-coin me-1"></i>Thanh toán
     </a>
@@ -364,6 +367,42 @@
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
           <button type="submit" class="btn btn-primary d-none" id="foodSubmitBtn">
             <i class="bi bi-check-lg me-1"></i>Thêm món
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: In kiểm tra -->
+<div class="modal fade" id="printCheckModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-printer me-2"></i>In phiếu kiểm tra</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{% url 'print_check_bill' session.id %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <p class="text-muted small mb-3">In tạm tính để khách xem trước — phòng vẫn tiếp tục, chưa thanh toán.</p>
+          <div class="row g-2">
+            <div class="col-8">
+              <label class="form-label small fw-semibold">IP máy in</label>
+              <input type="text" name="printer_ip" class="form-control form-control-sm"
+                placeholder="192.168.1.100" value="{{ printer_ip }}">
+            </div>
+            <div class="col-4">
+              <label class="form-label small fw-semibold">Port</label>
+              <input type="number" name="printer_port" class="form-control form-control-sm"
+                value="{{ printer_port }}">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-printer me-1"></i>In ngay
           </button>
         </div>
       </form>

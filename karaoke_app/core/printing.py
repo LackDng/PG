@@ -1,6 +1,6 @@
 """
-In hóa đơn nhiệt qua ESC/POS Network/TCP.
-Yêu cầu: python-escpos
+In hoa don nhiet qua ESC/POS Network/TCP.
+Yeu cau: python-escpos
 """
 
 from django.utils import timezone
@@ -12,48 +12,85 @@ except ImportError:
     ESCPOS_AVAILABLE = False
 
 
-def print_invoice(invoice, ip, port=9100):
-    """
-    In hóa đơn ra máy in nhiệt.
-    Trả về (success: bool, message: str)
-    """
-    if not ESCPOS_AVAILABLE:
-        return False, "Thư viện python-escpos chưa được cài đặt."
+# ── VietQR EMVCo payload generator ───────────────────────────────────────────
 
+def _make_vietqr_payload(bank_bin, account_no, amount=0, description=""):
+    """Tao VietQR EMVCo payload chuan de in QR code ngan hang."""
+
+    def tlv(tag, value):
+        v = str(value)
+        return f"{int(tag):02d}{len(v):02d}{v}"
+
+    acq_value = f"0006{bank_bin}01{len(account_no):02d}{account_no}"
+    mai_inner = tlv(0, "A000000727") + tlv(1, acq_value) + tlv(2, "QRIBFTTA")
+
+    desc_clean = (description or "")[:25]
+    add_data = tlv(8, desc_clean) if desc_clean else ""
+
+    payload = (
+        tlv(0, "01") +
+        tlv(1, "12") +
+        tlv(38, mai_inner) +
+        tlv(53, "704") +
+        (tlv(54, str(int(amount))) if amount > 0 else "") +
+        tlv(58, "VN") +
+        (tlv(62, add_data) if add_data else "") +
+        "6304"
+    )
+
+    # CRC-16/CCITT-FALSE
+    crc = 0xFFFF
+    for byte in payload.encode("utf-8"):
+        crc ^= byte << 8
+        for _ in range(8):
+            crc = ((crc << 1) ^ 0x1021 if crc & 0x8000 else crc << 1) & 0xFFFF
+
+    return payload + f"{crc:04X}"
+
+
+# ── In hoa don chinh thuc ─────────────────────────────────────────────────────
+
+def print_invoice(invoice, ip, port=9100):
+    """In hoa don ra may in nhiet. Tra ve (success: bool, message: str)."""
+    if not ESCPOS_AVAILABLE:
+        return False, "Thu vien python-escpos chua duoc cai dat."
     try:
         p = EscPosNetwork(ip, port, timeout=5)
         _print_invoice_content(p, invoice)
         p.close()
-        return True, "In thành công."
+        return True, "In thanh cong."
     except ConnectionRefusedError:
-        return False, f"Không thể kết nối máy in tại {ip}:{port}."
+        return False, f"Khong the ket noi may in tai {ip}:{port}."
     except Exception as e:
-        return False, f"Lỗi máy in: {str(e)}"
+        return False, f"Loi may in: {str(e)}"
 
 
 def _print_invoice_content(p, invoice):
-    """Ghi nội dung hóa đơn vào máy in."""
+    """Ghi noi dung hoa don vao may in."""
     from core.pricing import format_duration
+    from core.models import Config
 
     session = invoice.session
     room_name = session.room.name
     now = timezone.localtime(invoice.created_at)
+    shop_name = Config.get("shop_name", "KARAOKE")
 
-    # Tiêu đề
+    # Tieu de
     p.set(align="center", bold=True, double_height=True, double_width=True)
-    p.text("HOA DON\n")
-    p.set(align="center", bold=False, double_height=False, double_width=False)
-    p.text("DICH VU KARAOKE\n")
+    p.text(f"{_truncate(shop_name.upper(), 14)}\n")
+    p.set(align="center", bold=True, double_height=False, double_width=False)
+    p.text("HOA DON THANH TOAN\n")
+    p.set(bold=False)
     p.text("-" * 32 + "\n")
 
-    # Thông tin phòng
+    # Thong tin phong
     p.set(align="left")
-    p.text(f"Phong : {room_name}\n")
-    p.text(f"Thoi gian: {now.strftime('%d/%m/%Y %H:%M')}\n")
+    p.text(f"Phong    : {room_name}\n")
+    p.text(f"Ngay     : {now.strftime('%d/%m/%Y %H:%M')}\n")
     p.text(f"Thu ngan : {invoice.created_by.get_display_name() if invoice.created_by else ''}\n")
     p.text("=" * 32 + "\n")
 
-    # Dịch vụ
+    # Dich vu
     service_orders = session.get_all_service_orders()
     if service_orders.exists():
         p.set(bold=True)
@@ -67,7 +104,7 @@ def _print_invoice_content(p, invoice):
             p.text(f"{name} {dur}\n")
             p.text(f"{'':>20}{cost:>10,}d\n")
 
-    # Đồ ăn/uống
+    # Do an/uong
     menu_items = [i for i in session.get_all_order_items() if i.item_type == "menu"]
     if menu_items:
         p.set(bold=True)
@@ -78,7 +115,7 @@ def _print_invoice_content(p, invoice):
             p.text(f"{name} x{item.quantity}\n")
             p.text(f"{'':>20}{item.subtotal:>10,}d\n")
 
-    # Mua ngoài
+    # Mua ngoai
     outside_items = [i for i in session.get_all_order_items() if i.item_type == "outside"]
     if outside_items:
         p.set(bold=True)
@@ -91,34 +128,57 @@ def _print_invoice_content(p, invoice):
 
     p.text("-" * 32 + "\n")
 
-    # Tổng
+    # Tong tien
     p.set(bold=True)
     p.text(f"{'Tong cong:':20}{invoice.subtotal:>10,}d\n")
-
     if invoice.discount_percent > 0:
         p.text(f"{'Giam gia ' + str(invoice.discount_percent) + '%:':20}{-invoice.discount_amount:>10,}d\n")
         p.text(f"{'Sau giam gia:':20}{invoice.total_after_discount:>10,}d\n")
-
     p.set(bold=False)
-
     if invoice.tip > 0:
         p.text(f"{'Tip:':20}{invoice.tip:>10,}d\n")
 
     p.text("=" * 32 + "\n")
     p.set(bold=True, double_height=True)
-    p.text(f"TONG THANH TOAN:\n")
+    p.text("TONG THANH TOAN:\n")
     p.text(f"{invoice.total_after_discount:>30,}d\n")
     p.set(bold=False, double_height=False)
 
-    # Hình thức thanh toán
+    # Hinh thuc thanh toan
     p.text("-" * 32 + "\n")
     if invoice.payment_method == "cash":
-        p.text(f"Tien mat: {invoice.cash_amount:>20,}d\n")
+        p.text(f"Tien mat      : {invoice.cash_amount:>14,}d\n")
     elif invoice.payment_method == "transfer":
-        p.text(f"Chuyen khoan: {invoice.transfer_amount:>16,}d\n")
+        p.text(f"Chuyen khoan  : {invoice.transfer_amount:>14,}d\n")
     else:
-        p.text(f"Tien mat: {invoice.cash_amount:>20,}d\n")
-        p.text(f"Chuyen khoan: {invoice.transfer_amount:>16,}d\n")
+        p.text(f"Tien mat      : {invoice.cash_amount:>14,}d\n")
+        p.text(f"Chuyen khoan  : {invoice.transfer_amount:>14,}d\n")
+
+    # QR code chuyen khoan (neu co cau hinh)
+    bank_bin = Config.get("bank_id", "")
+    bank_account = Config.get("bank_account", "")
+    account_holder = Config.get("account_holder", "")
+
+    if bank_bin and bank_account and invoice.payment_method in ("transfer", "mixed"):
+        try:
+            p.text("=" * 32 + "\n")
+            p.set(align="center")
+            p.text("QUET MA QR CHUYEN KHOAN\n")
+            amount = invoice.total_after_discount
+            if invoice.payment_method == "mixed":
+                amount = invoice.transfer_amount
+            desc = f"TT {room_name}"
+            qr_data = _make_vietqr_payload(bank_bin, bank_account, amount, desc)
+            p.qr(qr_data, native=True, size=6)
+            p.set(align="left")
+            if account_holder:
+                p.text(f"CTK  : {account_holder}\n")
+            p.text(f"STK  : {bank_account}\n")
+            p.text(f"NH   : {bank_bin}\n")
+            p.text(f"ST   : {amount:,}d\n")
+            p.text(f"ND   : {desc}\n")
+        except Exception:
+            pass  # May in khong ho tro QR thi bo qua
 
     p.text("=" * 32 + "\n")
     p.set(align="center")
@@ -128,6 +188,100 @@ def _print_invoice_content(p, invoice):
     p.cut()
 
 
+# ── In phieu kiem tra (chua thanh toan) ───────────────────────────────────────
+
+def print_check_bill(session, ip, port=9100):
+    """In phieu kiem tra truoc khi thanh toan. Tra ve (success, message)."""
+    if not ESCPOS_AVAILABLE:
+        return False, "Thu vien python-escpos chua duoc cai dat."
+    try:
+        p = EscPosNetwork(ip, port, timeout=5)
+        _print_check_content(p, session)
+        p.close()
+        return True, "In phieu kiem tra thanh cong."
+    except ConnectionRefusedError:
+        return False, f"Khong the ket noi may in tai {ip}:{port}."
+    except Exception as e:
+        return False, f"Loi may in: {str(e)}"
+
+
+def _print_check_content(p, session):
+    """Ghi noi dung phieu kiem tra vao may in."""
+    from core.pricing import format_duration, calculate_session_total
+    from core.models import Config
+
+    now = timezone.now()
+    room_name = session.room.name
+    shop_name = Config.get("shop_name", "KARAOKE")
+
+    # Tieu de
+    p.set(align="center", bold=True, double_height=True, double_width=True)
+    p.text(f"{_truncate(shop_name.upper(), 14)}\n")
+    p.set(align="center", bold=True, double_height=False, double_width=False)
+    p.text("PHIEU KIEM TRA\n")
+    p.set(bold=False)
+    p.text("** CHUA THANH TOAN **\n")
+    p.text("-" * 32 + "\n")
+
+    p.set(align="left")
+    p.text(f"Phong    : {room_name}\n")
+    p.text(f"Thoi gian: {timezone.localtime(now).strftime('%d/%m/%Y %H:%M')}\n")
+    p.text("=" * 32 + "\n")
+
+    # Dich vu
+    service_orders = session.get_all_service_orders()
+    if service_orders.exists():
+        p.set(bold=True)
+        p.text("DICH VU:\n")
+        p.set(bold=False)
+        for so in service_orders:
+            end = so.ended_at or now
+            dur = format_duration((end - so.started_at).total_seconds() / 60)
+            cost = so.calculate_cost(at_time=now)
+            name = _truncate(so.service_name, 16)
+            p.text(f"{name} {dur}\n")
+            p.text(f"{'':>20}{cost:>10,}d\n")
+
+    # Do an/uong
+    menu_items = [i for i in session.get_all_order_items() if i.item_type == "menu"]
+    if menu_items:
+        p.set(bold=True)
+        p.text("DO AN/UONG:\n")
+        p.set(bold=False)
+        for item in menu_items:
+            name = _truncate(item.name, 16)
+            p.text(f"{name} x{item.quantity}\n")
+            p.text(f"{'':>20}{item.subtotal:>10,}d\n")
+
+    # Mua ngoai
+    outside_items = [i for i in session.get_all_order_items() if i.item_type == "outside"]
+    if outside_items:
+        p.set(bold=True)
+        p.text("MUA NGOAI:\n")
+        p.set(bold=False)
+        for item in outside_items:
+            name = _truncate(item.name, 16)
+            p.text(f"{name} x{item.quantity}\n")
+            p.text(f"{'':>20}{item.subtotal:>10,}d\n")
+
+    p.text("-" * 32 + "\n")
+
+    totals = calculate_session_total(session)
+    p.set(bold=True, double_height=True)
+    p.text(f"TAM TINH:\n")
+    p.text(f"{totals['subtotal']:>30,}d\n")
+    p.set(bold=False, double_height=False)
+
+    p.text("=" * 32 + "\n")
+    p.set(align="center")
+    p.text("** Phieu nay chi de kiem tra **\n")
+    p.text("** Vui long thanh toan tai quay **\n")
+    p.ln(4)
+    p.cut()
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
 def _truncate(text, max_len):
     if len(text) > max_len:
         return text[:max_len - 2] + ".."
@@ -135,63 +289,63 @@ def _truncate(text, max_len):
 
 
 def get_invoice_text(invoice):
-    """Trả về nội dung hóa đơn dạng text (dùng để xem trước)."""
+    """Tra ve noi dung hoa don dang text (dung de xem truoc tren web)."""
     from core.pricing import format_duration
 
     session = invoice.session
     lines = []
 
     lines.append("=" * 40)
-    lines.append("           HÓA ĐƠN KARAOKE")
+    lines.append("           HOA DON KARAOKE")
     lines.append("=" * 40)
-    lines.append(f"Phòng     : {session.room.name}")
-    lines.append(f"Thời gian : {timezone.localtime(invoice.created_at).strftime('%d/%m/%Y %H:%M')}")
+    lines.append(f"Phong     : {session.room.name}")
+    lines.append(f"Thoi gian : {timezone.localtime(invoice.created_at).strftime('%d/%m/%Y %H:%M')}")
     lines.append("-" * 40)
 
     service_orders = session.get_all_service_orders()
     if service_orders.exists():
-        lines.append("DỊCH VỤ:")
+        lines.append("DICH VU:")
         for so in service_orders:
             end = so.ended_at or invoice.created_at
             dur = format_duration((end - so.started_at).total_seconds() / 60)
             cost = so.calculate_cost(at_time=invoice.created_at)
             lines.append(f"  {so.service_name} ({dur})")
-            lines.append(f"  {'':>28}{cost:>8,}đ")
+            lines.append(f"  {'':>28}{cost:>8,}d")
 
     menu_items = [i for i in session.get_all_order_items() if i.item_type == "menu"]
     if menu_items:
-        lines.append("ĐỒ ĂN/UỐNG:")
+        lines.append("DO AN/UONG:")
         for item in menu_items:
             lines.append(f"  {item.name} x{item.quantity}")
-            lines.append(f"  {'':>28}{item.subtotal:>8,}đ")
+            lines.append(f"  {'':>28}{item.subtotal:>8,}d")
 
     outside_items = [i for i in session.get_all_order_items() if i.item_type == "outside"]
     if outside_items:
-        lines.append("MUA NGOÀI:")
+        lines.append("MUA NGOAI:")
         for item in outside_items:
             lines.append(f"  {item.name} x{item.quantity}")
-            lines.append(f"  {'':>28}{item.subtotal:>8,}đ")
+            lines.append(f"  {'':>28}{item.subtotal:>8,}d")
 
     lines.append("-" * 40)
-    lines.append(f"{'Tổng cộng:':<30}{invoice.subtotal:>8,}đ")
+    lines.append(f"{'Tong cong:':<30}{invoice.subtotal:>8,}d")
     if invoice.discount_percent > 0:
-        lines.append(f"{'Giảm giá ' + str(invoice.discount_percent) + '%:':<30}{-invoice.discount_amount:>8,}đ")
-        lines.append(f"{'Sau giảm giá:':<30}{invoice.total_after_discount:>8,}đ")
+        lines.append(f"{'Giam gia ' + str(invoice.discount_percent) + '%:':<30}{-invoice.discount_amount:>8,}d")
+        lines.append(f"{'Sau giam gia:':<30}{invoice.total_after_discount:>8,}d")
     if invoice.tip > 0:
-        lines.append(f"{'Tip:':<30}{invoice.tip:>8,}đ")
+        lines.append(f"{'Tip:':<30}{invoice.tip:>8,}d")
     lines.append("=" * 40)
-    lines.append(f"TỔNG THANH TOÁN: {invoice.total_after_discount:>20,}đ")
+    lines.append(f"TONG THANH TOAN: {invoice.total_after_discount:>20,}d")
     lines.append("=" * 40)
 
     if invoice.payment_method == "cash":
-        lines.append(f"Tiền mặt: {invoice.cash_amount:,}đ")
+        lines.append(f"Tien mat    : {invoice.cash_amount:,}d")
     elif invoice.payment_method == "transfer":
-        lines.append(f"Chuyển khoản: {invoice.transfer_amount:,}đ")
+        lines.append(f"Chuyen khoan: {invoice.transfer_amount:,}d")
     else:
-        lines.append(f"Tiền mặt    : {invoice.cash_amount:,}đ")
-        lines.append(f"Chuyển khoản: {invoice.transfer_amount:,}đ")
+        lines.append(f"Tien mat    : {invoice.cash_amount:,}d")
+        lines.append(f"Chuyen khoan: {invoice.transfer_amount:,}d")
 
     lines.append("=" * 40)
-    lines.append("         Cảm ơn quý khách!")
+    lines.append("         Cam on quy khach!")
 
     return "\n".join(lines)

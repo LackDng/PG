@@ -199,3 +199,25 @@ def invoice_list(request):
         "filter_date": date_str,
         "filter_room": room_filter,
     })
+
+
+@cashier_required
+def print_check_bill_view(request, session_id):
+    """In phiếu kiểm tra tạm tính trước khi thanh toán."""
+    session = get_object_or_404(RoomSession, pk=session_id, status="open")
+
+    printer_ip = request.POST.get("printer_ip", "").strip() or Config.get("printer_ip", "")
+    printer_port = int(request.POST.get("printer_port", None) or Config.get("printer_port", "9100") or 9100)
+
+    if not printer_ip:
+        messages.error(request, "Chưa cấu hình IP máy in. Vào Quản trị > Cấu hình để thêm.")
+        return redirect("room_detail", room_id=session.room_id)
+
+    from core.printing import print_check_bill
+    success, msg = print_check_bill(session, printer_ip, printer_port)
+    if success:
+        messages.success(request, "Đã in phiếu kiểm tra.")
+    else:
+        messages.error(request, f"Lỗi in: {msg}")
+
+    return redirect("room_detail", room_id=session.room_id)
