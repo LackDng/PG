@@ -35,6 +35,7 @@ urlpatterns = [
     # Payment
     path("sessions/<int:session_id>/checkout/", payment.checkout_view, name="checkout"),
     path("sessions/<int:session_id>/print-check/", payment.print_check_bill_view, name="print_check_bill"),
+    path("sessions/<int:session_id>/print-temp/", payment.print_temp_bill_view, name="print_temp_bill"),
     path("invoices/", payment.invoice_list, name="invoice_list"),
     path("invoices/<int:invoice_id>/", payment.invoice_detail, name="invoice_detail"),
     path("invoices/<int:invoice_id>/reprint/", payment.reprint_invoice, name="reprint_invoice"),

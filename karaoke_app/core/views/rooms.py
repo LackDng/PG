@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils import timezone
 from django.http import JsonResponse
-from core.models import Room, RoomSession, ServiceOrder, OrderItem, ServiceType, MenuItem, MenuCategory, ActivityLog, Config
+from core.models import Room, RoomSession, ServiceOrder, OrderItem, ServiceType, MenuItem, MenuCategory, ActivityLog, Config, Invoice
 from core.decorators import login_required_custom, staff_required
 from core.pricing import calculate_session_total, get_cost_breakdown
 
@@ -84,6 +84,7 @@ def room_detail(request, room_id):
         "now": now,
         "printer_ip": Config.get("printer_ip", ""),
         "printer_port": Config.get("printer_port", "9100"),
+        "discount_choices": Invoice.DISCOUNT_CHOICES,
     })
 
 

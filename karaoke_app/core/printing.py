@@ -154,32 +154,6 @@ def _print_invoice_content(p, invoice):
         p.text(f"Tien mat      : {invoice.cash_amount:>14,}d\n")
         p.text(f"Chuyen khoan  : {invoice.transfer_amount:>14,}d\n")
 
-    # QR code chuyen khoan (neu co cau hinh)
-    bank_bin = Config.get("bank_id", "")
-    bank_account = Config.get("bank_account", "")
-    account_holder = Config.get("account_holder", "")
-
-    if bank_bin and bank_account and invoice.payment_method in ("transfer", "mixed"):
-        try:
-            p.text("=" * 32 + "\n")
-            p.set(align="center")
-            p.text("QUET MA QR CHUYEN KHOAN\n")
-            amount = invoice.total_after_discount
-            if invoice.payment_method == "mixed":
-                amount = invoice.transfer_amount
-            desc = f"TT {room_name}"
-            qr_data = _make_vietqr_payload(bank_bin, bank_account, amount, desc)
-            p.qr(qr_data, native=True, size=6)
-            p.set(align="left")
-            if account_holder:
-                p.text(f"CTK  : {account_holder}\n")
-            p.text(f"STK  : {bank_account}\n")
-            p.text(f"NH   : {bank_bin}\n")
-            p.text(f"ST   : {amount:,}d\n")
-            p.text(f"ND   : {desc}\n")
-        except Exception:
-            pass  # May in khong ho tro QR thi bo qua
-
     p.text("=" * 32 + "\n")
     p.set(align="center")
     p.text("Cam on quy khach!\n")
@@ -206,7 +180,7 @@ def print_check_bill(session, ip, port=9100):
 
 
 def _print_check_content(p, session):
-    """Ghi noi dung phieu kiem tra vao may in."""
+    """Buoc 1 — PHIEU KIEM BILL: liet ke chi tiet, khach xac nhan, khong co QR."""
     from core.pricing import format_duration, calculate_session_total
     from core.models import Config
 
@@ -214,13 +188,11 @@ def _print_check_content(p, session):
     room_name = session.room.name
     shop_name = Config.get("shop_name", "KARAOKE")
 
-    # Tieu de
     p.set(align="center", bold=True, double_height=True, double_width=True)
     p.text(f"{_truncate(shop_name.upper(), 14)}\n")
     p.set(align="center", bold=True, double_height=False, double_width=False)
-    p.text("PHIEU KIEM TRA\n")
+    p.text("PHIEU KIEM BILL\n")
     p.set(bold=False)
-    p.text("** CHUA THANH TOAN **\n")
     p.text("-" * 32 + "\n")
 
     p.set(align="left")
@@ -228,7 +200,7 @@ def _print_check_content(p, session):
     p.text(f"Thoi gian: {timezone.localtime(now).strftime('%d/%m/%Y %H:%M')}\n")
     p.text("=" * 32 + "\n")
 
-    # Dich vu
+    # Dich vu — in day du ten + thoi gian + tien
     service_orders = session.get_all_service_orders()
     if service_orders.exists():
         p.set(bold=True)
@@ -239,8 +211,9 @@ def _print_check_content(p, session):
             dur = format_duration((end - so.started_at).total_seconds() / 60)
             cost = so.calculate_cost(at_time=now)
             name = _truncate(so.service_name, 16)
-            p.text(f"{name} {dur}\n")
-            p.text(f"{'':>20}{cost:>10,}d\n")
+            started = timezone.localtime(so.started_at).strftime("%H:%M")
+            p.text(f"{name}\n")
+            p.text(f"  {started} | {dur:<8}{cost:>14,}d\n")
 
     # Do an/uong
     menu_items = [i for i in session.get_all_order_items() if i.item_type == "menu"]
@@ -249,9 +222,9 @@ def _print_check_content(p, session):
         p.text("DO AN/UONG:\n")
         p.set(bold=False)
         for item in menu_items:
-            name = _truncate(item.name, 16)
+            name = _truncate(item.name, 18)
             p.text(f"{name} x{item.quantity}\n")
-            p.text(f"{'':>20}{item.subtotal:>10,}d\n")
+            p.text(f"  {item.unit_price:,}d x {item.quantity} = {item.subtotal:>10,}d\n")
 
     # Mua ngoai
     outside_items = [i for i in session.get_all_order_items() if i.item_type == "outside"]
@@ -260,13 +233,19 @@ def _print_check_content(p, session):
         p.text("MUA NGOAI:\n")
         p.set(bold=False)
         for item in outside_items:
-            name = _truncate(item.name, 16)
+            name = _truncate(item.name, 18)
             p.text(f"{name} x{item.quantity}\n")
-            p.text(f"{'':>20}{item.subtotal:>10,}d\n")
+            p.text(f"  {item.unit_price:,}d x {item.quantity} = {item.subtotal:>10,}d\n")
 
     p.text("-" * 32 + "\n")
 
     totals = calculate_session_total(session)
+    p.set(bold=True)
+    p.text(f"{'Dich vu:':20}{totals['total_service']:>10,}d\n")
+    p.text(f"{'Do an/uong:':20}{totals['total_food']:>10,}d\n")
+    if totals["total_outside"] > 0:
+        p.text(f"{'Mua ngoai:':20}{totals['total_outside']:>10,}d\n")
+    p.text("=" * 32 + "\n")
     p.set(bold=True, double_height=True)
     p.text(f"TAM TINH:\n")
     p.text(f"{totals['subtotal']:>30,}d\n")
@@ -274,8 +253,97 @@ def _print_check_content(p, session):
 
     p.text("=" * 32 + "\n")
     p.set(align="center")
-    p.text("** Phieu nay chi de kiem tra **\n")
-    p.text("** Vui long thanh toan tai quay **\n")
+    p.text("Vui long xac nhan va bao nhan vien\n")
+    p.ln(4)
+    p.cut()
+
+
+# ── In phieu tam tinh (co QR) ─────────────────────────────────────────────────
+
+def print_temp_bill(session, discount_percent=0, ip="", port=9100):
+    """Buoc 2 — PHIEU TAM TINH: tong tien + QR de khach quet chuyen khoan."""
+    if not ESCPOS_AVAILABLE:
+        return False, "Thu vien python-escpos chua duoc cai dat."
+    try:
+        p = EscPosNetwork(ip, port, timeout=5)
+        _print_temp_content(p, session, discount_percent)
+        p.close()
+        return True, "In phieu tam tinh thanh cong."
+    except ConnectionRefusedError:
+        return False, f"Khong the ket noi may in tai {ip}:{port}."
+    except Exception as e:
+        return False, f"Loi may in: {str(e)}"
+
+
+def _print_temp_content(p, session, discount_percent=0):
+    """Buoc 2 — PHIEU TAM TINH: tong + giam gia + QR chuyen khoan."""
+    from core.pricing import calculate_session_total
+    from core.models import Config
+
+    now = timezone.now()
+    room_name = session.room.name
+    shop_name = Config.get("shop_name", "KARAOKE")
+
+    totals = calculate_session_total(session)
+    subtotal = totals["subtotal"]
+    discount_amount = int(subtotal * discount_percent / 100)
+    total_after_discount = subtotal - discount_amount
+
+    p.set(align="center", bold=True, double_height=True, double_width=True)
+    p.text(f"{_truncate(shop_name.upper(), 14)}\n")
+    p.set(align="center", bold=True, double_height=False, double_width=False)
+    p.text("PHIEU TAM TINH\n")
+    p.set(bold=False)
+    p.text("-" * 32 + "\n")
+
+    p.set(align="left")
+    p.text(f"Phong    : {room_name}\n")
+    p.text(f"Thoi gian: {timezone.localtime(now).strftime('%d/%m/%Y %H:%M')}\n")
+    p.text("=" * 32 + "\n")
+
+    p.text(f"{'Dich vu:':20}{totals['total_service']:>10,}d\n")
+    p.text(f"{'Do an/uong:':20}{totals['total_food']:>10,}d\n")
+    if totals["total_outside"] > 0:
+        p.text(f"{'Mua ngoai:':20}{totals['total_outside']:>10,}d\n")
+    p.text("-" * 32 + "\n")
+    p.set(bold=True)
+    p.text(f"{'Tam tinh:':20}{subtotal:>10,}d\n")
+    if discount_percent > 0:
+        p.text(f"{'Giam gia ' + str(discount_percent) + '%:':20}{-discount_amount:>10,}d\n")
+    p.set(bold=False)
+    p.text("=" * 32 + "\n")
+    p.set(bold=True, double_height=True)
+    p.text("TONG THANH TOAN:\n")
+    p.text(f"{total_after_discount:>30,}d\n")
+    p.set(bold=False, double_height=False)
+
+    # QR chuyen khoan
+    bank_bin = Config.get("bank_id", "")
+    bank_account = Config.get("bank_account", "")
+    account_holder = Config.get("account_holder", "")
+
+    if bank_bin and bank_account:
+        try:
+            p.text("=" * 32 + "\n")
+            p.set(align="center")
+            p.text("QUET MA QR DE CHUYEN KHOAN\n")
+            desc = f"TT {room_name}"
+            qr_data = _make_vietqr_payload(bank_bin, bank_account, total_after_discount, desc)
+            p.qr(qr_data, native=True, size=6)
+            p.set(align="left")
+            if account_holder:
+                p.text(f"CTK : {account_holder}\n")
+            p.text(f"STK : {bank_account}\n")
+            p.text(f"NH  : {bank_bin}\n")
+            p.text(f"ST  : {total_after_discount:,}d\n")
+            p.text(f"ND  : {desc}\n")
+        except Exception:
+            pass
+
+    p.text("=" * 32 + "\n")
+    p.set(align="center")
+    p.text("Sau khi thanh toan, bao nhan vien\n")
+    p.text("de xuat hoa don chinh thuc.\n")
     p.ln(4)
     p.cut()
 
