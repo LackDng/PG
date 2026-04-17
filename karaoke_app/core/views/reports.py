@@ -3,9 +3,9 @@ from django.http import HttpResponse
 from django.utils import timezone
 from django.db.models import Sum
 from django.contrib import messages
-from datetime import timedelta, date
-from core.models import Invoice, RoomSession, ServiceOrder, OrderItem
-from core.decorators import accountant_required, admin_required
+from datetime import date, timedelta
+from core.models import Invoice, RoomSession, ServiceOrder, OrderItem, ActivityLog
+from core.decorators import accountant_required, admin_required, login_required_custom
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
@@ -272,3 +272,32 @@ def delete_revenue(request):
         return redirect("delete_revenue")
 
     return render(request, "reports/delete_revenue.html")
+
+
+@login_required_custom
+def activity_log_list(request):
+    from core.decorators import login_required_custom as _
+    logs = ActivityLog.objects.select_related("user", "session__room").order_by("-created_at")
+
+    today = timezone.localdate().strftime("%Y-%m-%d")
+    date_str = request.GET.get("date", today)
+    action_filter = request.GET.get("action", "")
+
+    try:
+        filter_date = date.fromisoformat(date_str)
+        tz = timezone.get_current_timezone()
+        day_start = timezone.datetime.combine(filter_date, timezone.datetime.min.time()).replace(tzinfo=tz)
+        day_end = day_start + timedelta(days=1)
+        logs = logs.filter(created_at__gte=day_start, created_at__lt=day_end)
+    except ValueError:
+        pass
+
+    if action_filter:
+        logs = logs.filter(action=action_filter)
+
+    return render(request, "reports/activity_logs.html", {
+        "logs": logs[:500],
+        "action_choices": ActivityLog.ACTION_CHOICES,
+        "filter_date": date_str,
+        "filter_action": action_filter,
+    })

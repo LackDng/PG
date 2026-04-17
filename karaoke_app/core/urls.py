@@ -34,6 +34,7 @@ urlpatterns = [
 
     # Payment
     path("sessions/<int:session_id>/checkout/", payment.checkout_view, name="checkout"),
+    path("invoices/", payment.invoice_list, name="invoice_list"),
     path("invoices/<int:invoice_id>/", payment.invoice_detail, name="invoice_detail"),
     path("invoices/<int:invoice_id>/reprint/", payment.reprint_invoice, name="reprint_invoice"),
 
@@ -41,6 +42,7 @@ urlpatterns = [
     path("reports/daily/", reports.daily_report, name="daily_report"),
     path("reports/export-excel/", reports.export_excel, name="export_excel"),
     path("reports/delete-revenue/", reports.delete_revenue, name="delete_revenue"),
+    path("reports/activity-logs/", reports.activity_log_list, name="activity_log_list"),
 
     # Admin panel
     path("admin-panel/rooms/", admin_views.manage_rooms, name="manage_rooms"),

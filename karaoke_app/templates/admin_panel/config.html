@@ -37,6 +37,39 @@
         </div>
       </div>
 
+      <div class="card mb-3">
+        <div class="card-header bg-dark text-white"><i class="bi bi-qr-code me-2"></i>QR Thanh toán (VietQR)</div>
+        <div class="card-body">
+          <div class="alert alert-info small mb-3">
+            <i class="bi bi-info-circle me-1"></i>
+            Dùng để hiển thị QR chuyển khoản tự động đúng số tiền trên màn hình thanh toán.<br>
+            <strong>Bank ID</strong>: mã BIN ngân hàng, ví dụ VCB=970436, TCB=970407, MB=970422, BIDV=970418, ACB=970416, VPBank=970432
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Bank ID (BIN)</label>
+            <input type="text" name="bank_id" class="form-control" value="{{ configs.bank_id }}"
+              placeholder="VD: 970436">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Số tài khoản</label>
+            <input type="text" name="bank_account" class="form-control" value="{{ configs.bank_account }}"
+              placeholder="VD: 1234567890">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Tên chủ tài khoản</label>
+            <input type="text" name="account_holder" class="form-control" value="{{ configs.account_holder }}"
+              placeholder="VD: NGUYEN VAN A">
+          </div>
+          {% if configs.bank_id and configs.bank_account %}
+          <div class="text-center">
+            <div class="small text-muted mb-1">Preview QR (không có số tiền)</div>
+            <img src="https://img.vietqr.io/image/{{ configs.bank_id }}-{{ configs.bank_account }}-compact2.png?accountName={{ configs.account_holder }}"
+              alt="QR Preview" style="max-width:200px" class="border rounded">
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
       <button type="submit" class="btn btn-primary w-100">
         <i class="bi bi-save me-2"></i>Lưu cấu hình
       </button>

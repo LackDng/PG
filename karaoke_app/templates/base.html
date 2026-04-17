@@ -25,9 +25,20 @@
         <li class="nav-item">
           <a class="nav-link" href="{% url 'dashboard' %}"><i class="bi bi-grid-3x3-gap"></i> Phòng</a>
         </li>
-        {% if user.can_view_reports %}
         <li class="nav-item">
-          <a class="nav-link" href="{% url 'daily_report' %}"><i class="bi bi-bar-chart"></i> Báo cáo</a>
+          <a class="nav-link" href="{% url 'invoice_list' %}"><i class="bi bi-receipt"></i> Hóa đơn</a>
+        </li>
+        {% if user.can_view_reports %}
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"><i class="bi bi-bar-chart"></i> Báo cáo</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'daily_report' %}"><i class="bi bi-bar-chart"></i> Báo cáo ngày</a></li>
+            <li><a class="dropdown-item" href="{% url 'activity_log_list' %}"><i class="bi bi-clock-history"></i> Lịch sử hoạt động</a></li>
+            {% if user.can_manage_admin %}
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item text-danger" href="{% url 'delete_revenue' %}"><i class="bi bi-trash"></i> Xóa doanh thu</a></li>
+            {% endif %}
+          </ul>
         </li>
         {% endif %}
         {% if user.can_manage_admin %}

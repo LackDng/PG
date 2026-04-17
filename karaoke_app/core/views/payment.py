@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils import timezone
+from datetime import date, timedelta
 from core.models import RoomSession, Invoice, Config, ActivityLog
 from core.decorators import login_required_custom, cashier_required
 from core.pricing import calculate_session_total
@@ -114,6 +115,10 @@ def checkout_view(request, session_id):
     elif request.method == "POST" and not request.user.can_checkout():
         messages.error(request, "Bạn không có quyền thanh toán.")
 
+    bank_id = Config.get("bank_id", "")
+    bank_account = Config.get("bank_account", "")
+    account_holder = Config.get("account_holder", "")
+
     return render(request, "payment/checkout.html", {
         "session": session,
         "merged_sessions": merged_sessions,
@@ -124,6 +129,9 @@ def checkout_view(request, session_id):
         "printer_ip": printer_ip,
         "printer_port": printer_port,
         "now": now,
+        "bank_id": bank_id,
+        "bank_account": bank_account,
+        "account_holder": account_holder,
     })
 
 
@@ -163,3 +171,31 @@ def reprint_invoice(request, invoice_id):
         messages.error(request, f"Lỗi: {msg}")
 
     return redirect("invoice_detail", invoice_id=invoice_id)
+
+
+@login_required_custom
+def invoice_list(request):
+    invoices = Invoice.objects.select_related("session__room", "created_by").order_by("-created_at")
+
+    today = timezone.localdate().strftime("%Y-%m-%d")
+    date_str = request.GET.get("date", today)
+    room_filter = request.GET.get("room", "")
+
+    try:
+        from datetime import date, timedelta
+        filter_date = date.fromisoformat(date_str)
+        tz = timezone.get_current_timezone()
+        day_start = timezone.datetime.combine(filter_date, timezone.datetime.min.time()).replace(tzinfo=tz)
+        day_end = day_start + timedelta(days=1)
+        invoices = invoices.filter(created_at__gte=day_start, created_at__lt=day_end)
+    except ValueError:
+        pass
+
+    if room_filter:
+        invoices = invoices.filter(session__room__name__icontains=room_filter)
+
+    return render(request, "payment/invoice_list.html", {
+        "invoices": invoices[:300],
+        "filter_date": date_str,
+        "filter_room": room_filter,
+    })

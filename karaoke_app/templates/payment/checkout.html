@@ -168,6 +168,15 @@
             <div class="fw-bold fs-3" id="finalTotal">{{ totals.subtotal|floatformat:0 }}đ</div>
           </div>
 
+          {% if bank_id and bank_account %}
+          <!-- QR Thanh toán -->
+          <div id="qrSection" class="text-center mb-3 d-none">
+            <div class="small text-muted mb-1"><i class="bi bi-qr-code me-1"></i>Quét QR để chuyển khoản</div>
+            <img id="qrImage" src="" alt="QR thanh toán" class="border rounded" style="max-width:220px;width:100%">
+            <div class="small text-muted mt-1" id="qrAmount"></div>
+          </div>
+          {% endif %}
+
           <!-- Máy in -->
           <div class="card bg-light mb-3">
             <div class="card-body py-2 px-3">
