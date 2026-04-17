@@ -248,7 +248,44 @@ document.querySelectorAll('.discount-btn').forEach(btn => {
 document.querySelectorAll('input[name="payment_method"]').forEach(radio => {
   radio.addEventListener('change', function() {
     document.getElementById('mixedDiv').classList.toggle('d-none', this.value !== 'mixed');
+    if (typeof updateQR === 'function') updateQR();
   });
 });
+
+{% if bank_id and bank_account %}
+const BANK_ID = "{{ bank_id }}";
+const BANK_ACCOUNT = "{{ bank_account }}";
+const ACCOUNT_HOLDER = "{{ account_holder }}";
+const ROOM_NAME = "{{ session.room.name }}";
+
+function updateQR() {
+  const pm = document.querySelector('input[name="payment_method"]:checked').value;
+  const qrSection = document.getElementById('qrSection');
+  if (pm === 'cash') {
+    qrSection.classList.add('d-none');
+    return;
+  }
+  const totalText = document.getElementById('finalTotal').textContent;
+  const amount = parseInt(totalText.replace(/[^0-9]/g, '')) || 0;
+  if (amount <= 0) { qrSection.classList.add('d-none'); return; }
+
+  const info = encodeURIComponent('Thanh toan ' + ROOM_NAME);
+  const holder = encodeURIComponent(ACCOUNT_HOLDER);
+  const src = `https://img.vietqr.io/image/${BANK_ID}-${BANK_ACCOUNT}-compact2.png?amount=${amount}&addInfo=${info}&accountName=${holder}`;
+  document.getElementById('qrImage').src = src;
+  document.getElementById('qrAmount').textContent = amount.toLocaleString('vi-VN') + 'đ';
+  qrSection.classList.remove('d-none');
+}
+
+// Hook into existing updateTotal
+const _origUpdateTotal = updateTotal;
+function updateTotal() {
+  _origUpdateTotal();
+  updateQR();
+}
+
+// Trigger on page load
+updateQR();
+{% endif %}
 </script>
 {% endblock %}
