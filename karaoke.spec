@@ -86,6 +86,10 @@ hiddenimports = [
     'PIL.Image',
     # SQLite
     '_sqlite3',
+    # Windows printing
+    'win32print',
+    'win32api',
+    'pywintypes',
     # Django utils
     'django.utils.timezone',
     'django.utils.translation',

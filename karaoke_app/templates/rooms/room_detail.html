@@ -392,21 +392,10 @@
         {% csrf_token %}
         <div class="modal-body">
           <p class="text-muted small mb-3">
-            In danh sách đầy đủ dịch vụ, đồ ăn/uống và tổng tạm tính để khách xác nhận.<br>
+            In danh sách dịch vụ, đồ ăn/uống để khách xác nhận.<br>
             <strong>Phòng vẫn mở, chưa thanh toán.</strong>
           </p>
-          <div class="row g-2">
-            <div class="col-8">
-              <label class="form-label small fw-semibold">IP máy in</label>
-              <input type="text" name="printer_ip" class="form-control form-control-sm"
-                placeholder="192.168.1.100" value="{{ printer_ip }}">
-            </div>
-            <div class="col-4">
-              <label class="form-label small fw-semibold">Port</label>
-              <input type="number" name="printer_port" class="form-control form-control-sm"
-                value="{{ printer_port }}">
-            </div>
-          </div>
+          {% include "partials/printer_widget.html" with widget_id="check" printer_ip=printer_ip printer_port=printer_port %}
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
@@ -431,7 +420,7 @@
         {% csrf_token %}
         <div class="modal-body">
           <p class="text-muted small mb-3">
-            In tổng tiền cần thanh toán và mã QR chuyển khoản.<br>
+            In tổng tiền + mã QR chuyển khoản.<br>
             Khách quét QR, nhân viên xác nhận rồi bấm <strong>Thanh toán</strong>.
           </p>
 
@@ -445,23 +434,12 @@
             <input type="hidden" name="discount_percent" id="tempDiscountInput" value="0">
           </div>
 
-          <div class="alert alert-info text-center py-2">
+          <div class="alert alert-info text-center py-2 mb-3">
             <div class="small text-muted">Tổng thanh toán</div>
             <div class="fw-bold fs-4" id="tempFinalTotal">{{ totals.subtotal|floatformat:0 }}đ</div>
           </div>
 
-          <div class="row g-2">
-            <div class="col-8">
-              <label class="form-label small fw-semibold">IP máy in</label>
-              <input type="text" name="printer_ip" class="form-control form-control-sm"
-                placeholder="192.168.1.100" value="{{ printer_ip }}">
-            </div>
-            <div class="col-4">
-              <label class="form-label small fw-semibold">Port</label>
-              <input type="number" name="printer_port" class="form-control form-control-sm"
-                value="{{ printer_port }}">
-            </div>
-          </div>
+          {% include "partials/printer_widget.html" with widget_id="temp" printer_ip=printer_ip printer_port=printer_port %}
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
@@ -614,6 +592,10 @@ document.getElementById('searchFood').addEventListener('input', function() {
     div.style.display = name.includes(q) ? '' : 'none';
   });
 });
+
+// Init printer widgets
+initPrinterWidget('check', 'printCheckModal');
+initPrinterWidget('temp', 'printTempModal');
 
 // Tạm tính modal — discount buttons
 const TEMP_SUBTOTAL = {{ totals.subtotal }};

@@ -1,17 +1,50 @@
 """
-In hoa don nhiet qua ESC/POS Network/TCP.
-Yeu cau: python-escpos
+In hoa don nhiet qua ESC/POS Network/TCP hoac may in Windows.
+Yeu cau: python-escpos, pywin32 (Windows only)
 """
 
 from django.utils import timezone
 
 try:
     from escpos.printer import Network as EscPosNetwork
+    from escpos.printer import Dummy as EscPosDummy
     ESCPOS_AVAILABLE = True
 except Exception:
-    # FileNotFoundError (capabilities.json) hoặc ImportError đều bắt ở đây
     ESCPOS_AVAILABLE = False
     EscPosNetwork = None
+    EscPosDummy = None
+
+WIN32_AVAILABLE = False
+try:
+    import win32print as _win32print
+    WIN32_AVAILABLE = True
+except ImportError:
+    _win32print = None
+
+
+def get_windows_printers():
+    """Tra ve danh sach ten may in dang cai tren Windows. [] neu khong ho tro."""
+    if not WIN32_AVAILABLE:
+        return []
+    try:
+        flags = _win32print.PRINTER_ENUM_LOCAL | _win32print.PRINTER_ENUM_CONNECTIONS
+        return [p[2] for p in _win32print.EnumPrinters(flags)]
+    except Exception:
+        return []
+
+
+def _send_raw_to_windows_printer(printer_name, raw_bytes):
+    hprinter = _win32print.OpenPrinter(printer_name)
+    try:
+        _win32print.StartDocPrinter(hprinter, 1, ("Receipt", None, "RAW"))
+        try:
+            _win32print.StartPagePrinter(hprinter)
+            _win32print.WritePrinter(hprinter, raw_bytes)
+            _win32print.EndPagePrinter(hprinter)
+        finally:
+            _win32print.EndDocPrinter(hprinter)
+    finally:
+        _win32print.ClosePrinter(hprinter)
 
 
 # ── VietQR EMVCo payload generator ───────────────────────────────────────────
@@ -52,14 +85,21 @@ def _make_vietqr_payload(bank_bin, account_no, amount=0, description=""):
 
 # ── In hoa don chinh thuc ─────────────────────────────────────────────────────
 
-def print_invoice(invoice, ip, port=9100):
-    """In hoa don ra may in nhiet. Tra ve (success: bool, message: str)."""
+def print_invoice(invoice, ip="", port=9100, printer_name=""):
+    """In hoa don. printer_name -> Windows printer; ip -> Network ESC/POS."""
     if not ESCPOS_AVAILABLE:
         return False, "Thu vien python-escpos chua duoc cai dat."
     try:
-        p = EscPosNetwork(ip, port, timeout=5)
-        _print_invoice_content(p, invoice)
-        p.close()
+        if printer_name:
+            if not WIN32_AVAILABLE:
+                return False, "win32print khong co san (chi chay tren Windows)."
+            d = EscPosDummy()
+            _print_invoice_content(d, invoice)
+            _send_raw_to_windows_printer(printer_name, d.output)
+        else:
+            p = EscPosNetwork(ip, port, timeout=5)
+            _print_invoice_content(p, invoice)
+            p.close()
         return True, "In thanh cong."
     except ConnectionRefusedError:
         return False, f"Khong the ket noi may in tai {ip}:{port}."
@@ -181,14 +221,21 @@ def _print_invoice_content(p, invoice):
 
 # ── In phieu kiem tra (chua thanh toan) ───────────────────────────────────────
 
-def print_check_bill(session, ip, port=9100):
-    """In phieu kiem tra truoc khi thanh toan. Tra ve (success, message)."""
+def print_check_bill(session, ip="", port=9100, printer_name=""):
+    """In phieu kiem tra. printer_name -> Windows; ip -> Network."""
     if not ESCPOS_AVAILABLE:
         return False, "Thu vien python-escpos chua duoc cai dat."
     try:
-        p = EscPosNetwork(ip, port, timeout=5)
-        _print_check_content(p, session)
-        p.close()
+        if printer_name:
+            if not WIN32_AVAILABLE:
+                return False, "win32print khong co san (chi chay tren Windows)."
+            d = EscPosDummy()
+            _print_check_content(d, session)
+            _send_raw_to_windows_printer(printer_name, d.output)
+        else:
+            p = EscPosNetwork(ip, port, timeout=5)
+            _print_check_content(p, session)
+            p.close()
         return True, "In phieu kiem tra thanh cong."
     except ConnectionRefusedError:
         return False, f"Khong the ket noi may in tai {ip}:{port}."
@@ -269,14 +316,21 @@ def _print_check_content(p, session):
 
 # ── In phieu tam tinh (co QR) ─────────────────────────────────────────────────
 
-def print_temp_bill(session, discount_percent=0, ip="", port=9100):
-    """Buoc 2 — PHIEU TAM TINH: tong tien + QR de khach quet chuyen khoan."""
+def print_temp_bill(session, discount_percent=0, ip="", port=9100, printer_name=""):
+    """In phieu tam tinh + QR. printer_name -> Windows; ip -> Network."""
     if not ESCPOS_AVAILABLE:
         return False, "Thu vien python-escpos chua duoc cai dat."
     try:
-        p = EscPosNetwork(ip, port, timeout=5)
-        _print_temp_content(p, session, discount_percent)
-        p.close()
+        if printer_name:
+            if not WIN32_AVAILABLE:
+                return False, "win32print khong co san (chi chay tren Windows)."
+            d = EscPosDummy()
+            _print_temp_content(d, session, discount_percent)
+            _send_raw_to_windows_printer(printer_name, d.output)
+        else:
+            p = EscPosNetwork(ip, port, timeout=5)
+            _print_temp_content(p, session, discount_percent)
+            p.close()
         return True, "In phieu tam tinh thanh cong."
     except ConnectionRefusedError:
         return False, f"Khong the ket noi may in tai {ip}:{port}."

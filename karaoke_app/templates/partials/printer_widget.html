@@ -1,0 +1,35 @@
+{# Printer selector widget. Params: widget_id (unique str), printer_ip, printer_port #}
+<div class="printer-widget" data-widget-id="{{ widget_id }}">
+  <label class="form-label small fw-semibold mb-1">Máy in</label>
+  <div class="btn-group w-100 mb-2" role="group">
+    <input type="radio" class="btn-check" name="print_mode_{{ widget_id }}"
+      id="pm_win_{{ widget_id }}" value="windows" checked>
+    <label class="btn btn-sm btn-outline-primary" for="pm_win_{{ widget_id }}">
+      <i class="bi bi-printer me-1"></i>Máy in Windows
+    </label>
+    <input type="radio" class="btn-check" name="print_mode_{{ widget_id }}"
+      id="pm_net_{{ widget_id }}" value="network">
+    <label class="btn btn-sm btn-outline-secondary" for="pm_net_{{ widget_id }}">
+      <i class="bi bi-wifi me-1"></i>Mạng (IP)
+    </label>
+  </div>
+
+  <div class="win-section-{{ widget_id }}">
+    <select name="printer_name" class="form-select form-select-sm">
+      <option value="">-- Đang tải danh sách máy in... --</option>
+    </select>
+  </div>
+
+  <div class="net-section-{{ widget_id }} d-none">
+    <div class="row g-1">
+      <div class="col-8">
+        <input type="text" name="printer_ip" class="form-control form-control-sm"
+          placeholder="192.168.1.100" value="{{ printer_ip }}">
+      </div>
+      <div class="col-4">
+        <input type="number" name="printer_port" class="form-control form-control-sm"
+          value="{{ printer_port|default:'9100' }}">
+      </div>
+    </div>
+  </div>
+</div>

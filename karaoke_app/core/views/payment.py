@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.utils import timezone
 from datetime import date, timedelta
 from core.models import RoomSession, Invoice, Config, ActivityLog
+from django.http import JsonResponse
 from core.decorators import login_required_custom, cashier_required
 from core.pricing import calculate_session_total
 from core.printing import print_invoice, get_invoice_text
@@ -39,6 +40,7 @@ def checkout_view(request, session_id):
         cash_amount = int(request.POST.get("cash_amount", 0) or 0)
         transfer_amount = int(request.POST.get("transfer_amount", 0) or 0)
         do_print = request.POST.get("do_print") == "1"
+        custom_printer_name = request.POST.get("printer_name", "").strip()
         custom_printer_ip = request.POST.get("printer_ip", "").strip() or printer_ip
         custom_printer_port = int(request.POST.get("printer_port", printer_port) or 9100)
 
@@ -94,8 +96,13 @@ def checkout_view(request, session_id):
         session.room.save()
 
         # In hóa đơn nếu được yêu cầu
-        if do_print and custom_printer_ip:
-            success, msg = print_invoice(invoice, custom_printer_ip, custom_printer_port)
+        if do_print and (custom_printer_name or custom_printer_ip):
+            success, msg = print_invoice(
+                invoice,
+                ip=custom_printer_ip,
+                port=custom_printer_port,
+                printer_name=custom_printer_name,
+            )
             if success:
                 invoice.printed = True
                 invoice.printer_ip = custom_printer_ip
@@ -155,14 +162,15 @@ def invoice_detail(request, invoice_id):
 def reprint_invoice(request, invoice_id):
     invoice = get_object_or_404(Invoice, pk=invoice_id)
 
+    printer_name = request.POST.get("printer_name", "").strip()
     printer_ip = request.POST.get("printer_ip", "").strip() or Config.get("printer_ip", "")
     printer_port = int(request.POST.get("printer_port", Config.get("printer_port", "9100")) or 9100)
 
-    if not printer_ip:
-        messages.error(request, "Chưa cấu hình IP máy in.")
+    if not printer_name and not printer_ip:
+        messages.error(request, "Chưa chọn máy in.")
         return redirect("invoice_detail", invoice_id=invoice_id)
 
-    success, msg = print_invoice(invoice, printer_ip, printer_port)
+    success, msg = print_invoice(invoice, ip=printer_ip, port=printer_port, printer_name=printer_name)
     if success:
         invoice.printed = True
         invoice.save()
@@ -203,18 +211,19 @@ def invoice_list(request):
 
 @cashier_required
 def print_check_bill_view(request, session_id):
-    """Bước 1 — In phiếu kiểm bill (chi tiết dịch vụ, khách xác nhận)."""
+    """Bước 1 — In phiếu kiểm bill."""
     session = get_object_or_404(RoomSession, pk=session_id, status="open")
 
+    printer_name = request.POST.get("printer_name", "").strip()
     printer_ip = request.POST.get("printer_ip", "").strip() or Config.get("printer_ip", "")
     printer_port = int(request.POST.get("printer_port", None) or Config.get("printer_port", "9100") or 9100)
 
-    if not printer_ip:
-        messages.error(request, "Chưa cấu hình IP máy in. Vào Quản trị > Cấu hình để thêm.")
+    if not printer_name and not printer_ip:
+        messages.error(request, "Chưa chọn máy in.")
         return redirect("room_detail", room_id=session.room_id)
 
     from core.printing import print_check_bill
-    success, msg = print_check_bill(session, printer_ip, printer_port)
+    success, msg = print_check_bill(session, ip=printer_ip, port=printer_port, printer_name=printer_name)
     if success:
         messages.success(request, "Đã in phiếu kiểm bill.")
     else:
@@ -225,22 +234,30 @@ def print_check_bill_view(request, session_id):
 
 @cashier_required
 def print_temp_bill_view(request, session_id):
-    """Bước 2 — In phiếu tạm tính (tổng tiền + QR chuyển khoản)."""
+    """Bước 2 — In phiếu tạm tính + QR."""
     session = get_object_or_404(RoomSession, pk=session_id, status="open")
 
+    printer_name = request.POST.get("printer_name", "").strip()
     printer_ip = request.POST.get("printer_ip", "").strip() or Config.get("printer_ip", "")
     printer_port = int(request.POST.get("printer_port", None) or Config.get("printer_port", "9100") or 9100)
     discount_percent = int(request.POST.get("discount_percent", 0) or 0)
 
-    if not printer_ip:
-        messages.error(request, "Chưa cấu hình IP máy in. Vào Quản trị > Cấu hình để thêm.")
+    if not printer_name and not printer_ip:
+        messages.error(request, "Chưa chọn máy in.")
         return redirect("room_detail", room_id=session.room_id)
 
     from core.printing import print_temp_bill
-    success, msg = print_temp_bill(session, discount_percent, printer_ip, printer_port)
+    success, msg = print_temp_bill(session, discount_percent, ip=printer_ip, port=printer_port, printer_name=printer_name)
     if success:
         messages.success(request, "Đã in phiếu tạm tính.")
     else:
         messages.error(request, f"Lỗi in: {msg}")
 
     return redirect("room_detail", room_id=session.room_id)
+
+
+@login_required_custom
+def api_list_printers(request):
+    """Tra ve danh sach may in Windows dang cai."""
+    from core.printing import get_windows_printers
+    return JsonResponse({"printers": get_windows_printers()})

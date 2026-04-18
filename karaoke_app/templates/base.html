@@ -87,6 +87,48 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 {% load static %}
 <script src="{% static 'js/main.js' %}"></script>
+<script>
+// ── Printer widget helpers ────────────────────────────────────────────────────
+async function loadWindowsPrinters(selectEl) {
+  selectEl.innerHTML = '<option value="">Đang tải...</option>';
+  try {
+    const resp = await fetch('/api/printers/');
+    const data = await resp.json();
+    const printers = data.printers || [];
+    if (printers.length === 0) {
+      selectEl.innerHTML = '<option value="">Không tìm thấy máy in Windows</option>';
+    } else {
+      selectEl.innerHTML = printers.map(n =>
+        `<option value="${n}">${n}</option>`).join('');
+    }
+  } catch {
+    selectEl.innerHTML = '<option value="">Lỗi tải danh sách</option>';
+  }
+}
+
+function initPrinterWidget(widgetId, modalId) {
+  const winRadio = document.getElementById('pm_win_' + widgetId);
+  const netRadio = document.getElementById('pm_net_' + widgetId);
+  if (!winRadio) return;
+  const winDiv = document.querySelector('.win-section-' + widgetId);
+  const netDiv = document.querySelector('.net-section-' + widgetId);
+  const sel = winDiv ? winDiv.querySelector('select') : null;
+
+  [winRadio, netRadio].forEach(r => r.addEventListener('change', function() {
+    const isWin = this.value === 'windows';
+    winDiv && winDiv.classList.toggle('d-none', !isWin);
+    netDiv && netDiv.classList.toggle('d-none', isWin);
+  }));
+
+  if (modalId && sel) {
+    document.getElementById(modalId).addEventListener('show.bs.modal', function() {
+      if (!netRadio.checked) loadWindowsPrinters(sel);
+    });
+  } else if (sel) {
+    loadWindowsPrinters(sel);
+  }
+}
+</script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>

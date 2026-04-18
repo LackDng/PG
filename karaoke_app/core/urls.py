@@ -39,6 +39,7 @@ urlpatterns = [
     path("invoices/", payment.invoice_list, name="invoice_list"),
     path("invoices/<int:invoice_id>/", payment.invoice_detail, name="invoice_detail"),
     path("invoices/<int:invoice_id>/reprint/", payment.reprint_invoice, name="reprint_invoice"),
+    path("api/printers/", payment.api_list_printers, name="api_list_printers"),
 
     # Reports
     path("reports/daily/", reports.daily_report, name="daily_report"),
