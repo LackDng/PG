@@ -16,6 +16,11 @@ if errorlevel 1 (
 )
 
 echo [1/5] Cai dat cac thu vien Python...
+:: Xoa cac folder bi hong (bat dau bang ~) truoc khi cai dat
+for /d %%d in ("%LOCALAPPDATA%\Programs\Python\Python*\Lib\site-packages\~*") do (
+    echo   Xoa folder bi hong: %%d
+    rd /s /q "%%d" 2>nul
+)
 pip install -r requirements.txt pyinstaller --quiet
 if errorlevel 1 (
     echo [LOI] Cai dat that bai.
