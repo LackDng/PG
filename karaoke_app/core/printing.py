@@ -107,93 +107,118 @@ def print_invoice(invoice, ip="", port=9100, printer_name=""):
         return False, f"Loi may in: {str(e)}"
 
 
-def _print_invoice_content(p, invoice):
-    """Ghi noi dung hoa don vao may in."""
+def _print_shop_header(p, W, title):
+    """In phan tieu de chung: ten cua hang, dia chi, hotline, tieu de phieu."""
+    from core.models import Config
+    shop_name = Config.get("shop_name", "KARAOKE")
+    shop_address = Config.get("shop_address", "")
+    shop_phone = Config.get("shop_phone", "")
+
+    p.set(align="center", bold=True)
+    p.text(f"{shop_name.upper()}\n")
+    p.set(bold=False)
+    if shop_address:
+        p.text(f"{_center_truncate(shop_address, W)}\n")
+    if shop_phone:
+        p.text(f"Hotline: {shop_phone}\n")
+    p.text("-" * W + "\n")
+    p.set(bold=True)
+    p.text(f"{title.center(W)}\n")
+    p.set(bold=False)
+
+
+def _center_truncate(text, width):
+    if len(text) > width:
+        text = text[:width - 2] + ".."
+    return text.center(width)
+
+
+def _print_items_section(p, W, session, ref_time):
+    """In phan chi tiet hang hoa theo dang bang."""
     from core.pricing import format_duration
+
+    p.set(bold=True)
+    p.text(f"{'TEN HANG HOA':<{W-10}}{'T.TIEN':>10}\n")
+    p.set(bold=False)
+    p.text("-" * W + "\n")
+
+    service_orders = session.get_all_service_orders()
+    if service_orders.exists():
+        for so in service_orders:
+            end = so.ended_at or ref_time
+            dur = format_duration((end - so.started_at).total_seconds() / 60)
+            cost = so.calculate_cost(at_time=ref_time)
+            start_str = timezone.localtime(so.started_at).strftime("%H:%M")
+            end_str = timezone.localtime(end).strftime("%H:%M")
+            name = _truncate(so.service_name, W - 10)
+            p.text(f"{name:<{W-10}}{cost:>10,}d\n")
+            p.text(f"  {start_str}-{end_str} {dur}\n")
+
+    menu_items = [i for i in session.get_all_order_items() if i.item_type == "menu"]
+    outside_items = [i for i in session.get_all_order_items() if i.item_type == "outside"]
+    for item in list(menu_items) + list(outside_items):
+        name = _truncate(item.name, W - 10)
+        p.text(f"{name:<{W-10}}{item.subtotal:>10,}d\n")
+        p.text(f"  {item.unit_price:,}d x {item.quantity}\n")
+
+
+def _print_invoice_content(p, invoice):
     from core.models import Config
 
     W = 30
     session = invoice.session
     room_name = session.room.name
     now = timezone.localtime(invoice.created_at)
-    shop_name = Config.get("shop_name", "KARAOKE")
+    opened = timezone.localtime(session.opened_at)
 
-    # Tieu de — chi dung bold, khong double size
-    p.set(align="center", bold=True)
-    p.text(f"{shop_name.upper()}\n")
-    p.text("HOA DON THANH TOAN\n")
-    p.set(align="left", bold=False)
+    _print_shop_header(p, W, "HOA DON THANH TOAN")
+    p.text(f"{'Phong: ' + room_name:^{W}}\n")
     p.text("-" * W + "\n")
 
-    p.text(f"Phong  : {room_name}\n")
-    p.text(f"Ngay   : {now.strftime('%d/%m/%Y %H:%M')}\n")
+    p.set(align="left")
+    p.text(f"So HD  : #{invoice.id}\n")
+    p.text(f"Gio vao: {opened.strftime('%H:%M %d/%m/%Y')}\n")
+    p.text(f"Gio ra : {now.strftime('%H:%M %d/%m/%Y')}\n")
     p.text(f"TN     : {invoice.created_by.get_display_name() if invoice.created_by else ''}\n")
     p.text("=" * W + "\n")
 
-    # Dich vu
-    service_orders = session.get_all_service_orders()
-    if service_orders.exists():
-        p.set(bold=True); p.text("DICH VU:\n"); p.set(bold=False)
-        for so in service_orders:
-            end = so.ended_at or invoice.created_at
-            dur = format_duration((end - so.started_at).total_seconds() / 60)
-            cost = so.calculate_cost(at_time=invoice.created_at)
-            name = _truncate(so.service_name, 14)
-            p.text(f"{name} {dur}\n")
-            p.text(f"{'':>18}{cost:>10,}d\n")
-
-    # Do an/uong
-    menu_items = [i for i in session.get_all_order_items() if i.item_type == "menu"]
-    if menu_items:
-        p.set(bold=True); p.text("DO AN/UONG:\n"); p.set(bold=False)
-        for item in menu_items:
-            name = _truncate(item.name, 16)
-            p.text(f"{name} x{item.quantity}\n")
-            p.text(f"{'':>18}{item.subtotal:>10,}d\n")
-
-    # Mua ngoai
-    outside_items = [i for i in session.get_all_order_items() if i.item_type == "outside"]
-    if outside_items:
-        p.set(bold=True); p.text("MUA NGOAI:\n"); p.set(bold=False)
-        for item in outside_items:
-            name = _truncate(item.name, 16)
-            p.text(f"{name} x{item.quantity}\n")
-            p.text(f"{'':>18}{item.subtotal:>10,}d\n")
-
+    _print_items_section(p, W, session, invoice.created_at)
     p.text("-" * W + "\n")
 
     # Tong tien
     p.set(bold=True)
-    p.text(f"{'Tong cong:':<16}{invoice.subtotal:>12,}d\n")
+    p.text(f"{'Dich vu:':<{W-12}}{invoice.total_service:>12,}d\n")
+    p.text(f"{'Do an/uong:':<{W-12}}{invoice.total_food:>12,}d\n")
+    if invoice.total_outside > 0:
+        p.text(f"{'Mua ngoai:':<{W-12}}{invoice.total_outside:>12,}d\n")
+    p.text(f"{'Tong cong:':<{W-12}}{invoice.subtotal:>12,}d\n")
     if invoice.discount_percent > 0:
         label = f"Giam gia {invoice.discount_percent}%:"
-        p.text(f"{label:<16}{-invoice.discount_amount:>12,}d\n")
-        p.text(f"{'Sau giam gia:':<16}{invoice.total_after_discount:>12,}d\n")
+        p.text(f"{label:<{W-12}}{-invoice.discount_amount:>12,}d\n")
+        p.text(f"{'Sau giam gia:':<{W-12}}{invoice.total_after_discount:>12,}d\n")
     p.set(bold=False)
     if invoice.tip > 0:
-        p.text(f"{'Tip:':<16}{invoice.tip:>12,}d\n")
+        p.text(f"{'Tip:':<{W-12}}{invoice.tip:>12,}d\n")
 
     p.text("=" * W + "\n")
     p.set(bold=True)
-    p.text(f"TONG THANH TOAN:\n")
+    p.text("TONG THANH TOAN:\n")
     p.text(f"{invoice.total_after_discount:>{W-1},}d\n")
     p.set(bold=False)
 
-    # Hinh thuc thanh toan
     p.text("-" * W + "\n")
     if invoice.payment_method == "cash":
-        p.text(f"{'Tien mat:':<16}{invoice.cash_amount:>12,}d\n")
+        p.text(f"{'Tien mat:':<{W-12}}{invoice.cash_amount:>12,}d\n")
     elif invoice.payment_method == "transfer":
-        p.text(f"{'Chuyen khoan:':<16}{invoice.transfer_amount:>12,}d\n")
+        p.text(f"{'Chuyen khoan:':<{W-12}}{invoice.transfer_amount:>12,}d\n")
     else:
-        p.text(f"{'Tien mat:':<16}{invoice.cash_amount:>12,}d\n")
-        p.text(f"{'Chuyen khoan:':<16}{invoice.transfer_amount:>12,}d\n")
+        p.text(f"{'Tien mat:':<{W-12}}{invoice.cash_amount:>12,}d\n")
+        p.text(f"{'Chuyen khoan:':<{W-12}}{invoice.transfer_amount:>12,}d\n")
 
-    # QR chuyen khoan tren hoa don chinh thuc
+    # QR chuyen khoan
     bank_bin = Config.get("bank_id", "")
     bank_account = Config.get("bank_account", "")
     account_holder = Config.get("account_holder", "")
-
     if bank_bin and bank_account and invoice.payment_method in ("transfer", "mixed"):
         try:
             p.text("=" * W + "\n")
@@ -245,68 +270,32 @@ def print_check_bill(session, ip="", port=9100, printer_name=""):
 
 def _print_check_content(p, session):
     """Buoc 1 — PHIEU KIEM BILL: liet ke chi tiet, khach xac nhan, khong co QR."""
-    from core.pricing import format_duration, calculate_session_total
-    from core.models import Config
+    from core.pricing import calculate_session_total
 
     W = 30
     now = timezone.now()
     room_name = session.room.name
-    shop_name = Config.get("shop_name", "KARAOKE")
 
-    p.set(align="center", bold=True)
-    p.text(f"{shop_name.upper()}\n")
-    p.text("PHIEU KIEM BILL\n")
-    p.set(align="left", bold=False)
+    _print_shop_header(p, W, "PHIEU KIEM BILL")
+    p.text(f"{'Phong: ' + room_name:^{W}}\n")
     p.text("-" * W + "\n")
-
-    p.text(f"Phong  : {room_name}\n")
-    p.text(f"Gio    : {timezone.localtime(now).strftime('%d/%m/%Y %H:%M')}\n")
+    p.set(align="left")
+    p.text(f"Gio    : {timezone.localtime(now).strftime('%H:%M %d/%m/%Y')}\n")
     p.text("=" * W + "\n")
 
-    # Dich vu
-    service_orders = session.get_all_service_orders()
-    if service_orders.exists():
-        p.set(bold=True); p.text("DICH VU:\n"); p.set(bold=False)
-        for so in service_orders:
-            end = so.ended_at or now
-            dur = format_duration((end - so.started_at).total_seconds() / 60)
-            cost = so.calculate_cost(at_time=now)
-            name = _truncate(so.service_name, 14)
-            started = timezone.localtime(so.started_at).strftime("%H:%M")
-            p.text(f"{name}\n")
-            p.text(f"  {started} {dur:<10}{cost:>10,}d\n")
-
-    # Do an/uong
-    menu_items = [i for i in session.get_all_order_items() if i.item_type == "menu"]
-    if menu_items:
-        p.set(bold=True); p.text("DO AN/UONG:\n"); p.set(bold=False)
-        for item in menu_items:
-            name = _truncate(item.name, 18)
-            p.text(f"{name} x{item.quantity}\n")
-            p.text(f"  {item.unit_price:,}d = {item.subtotal:>10,}d\n")
-
-    # Mua ngoai
-    outside_items = [i for i in session.get_all_order_items() if i.item_type == "outside"]
-    if outside_items:
-        p.set(bold=True); p.text("MUA NGOAI:\n"); p.set(bold=False)
-        for item in outside_items:
-            name = _truncate(item.name, 18)
-            p.text(f"{name} x{item.quantity}\n")
-            p.text(f"  {item.unit_price:,}d = {item.subtotal:>10,}d\n")
-
+    _print_items_section(p, W, session, now)
     p.text("-" * W + "\n")
 
     totals = calculate_session_total(session)
     p.set(bold=True)
-    p.text(f"{'Dich vu:':<16}{totals['total_service']:>12,}d\n")
-    p.text(f"{'Do an/uong:':<16}{totals['total_food']:>12,}d\n")
+    p.text(f"{'Dich vu:':<{W-12}}{totals['total_service']:>12,}d\n")
+    p.text(f"{'Do an/uong:':<{W-12}}{totals['total_food']:>12,}d\n")
     if totals["total_outside"] > 0:
-        p.text(f"{'Mua ngoai:':<16}{totals['total_outside']:>12,}d\n")
+        p.text(f"{'Mua ngoai:':<{W-12}}{totals['total_outside']:>12,}d\n")
     p.text("=" * W + "\n")
-    p.text(f"TAM TINH:\n")
+    p.text("TAM TINH:\n")
     p.text(f"{totals['subtotal']:>{W-1},}d\n")
     p.set(bold=False)
-
     p.text("=" * W + "\n")
     p.set(align="center")
     p.text("Vui long xac nhan va bao nhan vien\n")
@@ -343,46 +332,40 @@ def _print_temp_content(p, session, discount_percent=0):
     from core.pricing import calculate_session_total
     from core.models import Config
 
+    W = 30
     now = timezone.now()
     room_name = session.room.name
-    shop_name = Config.get("shop_name", "KARAOKE")
-
     totals = calculate_session_total(session)
     subtotal = totals["subtotal"]
     discount_amount = int(subtotal * discount_percent / 100)
     total_after_discount = subtotal - discount_amount
 
-    W = 30
-    p.set(align="center", bold=True)
-    p.text(f"{shop_name.upper()}\n")
-    p.text("PHIEU TAM TINH\n")
-    p.set(align="left", bold=False)
+    _print_shop_header(p, W, "PHIEU TAM TINH")
+    p.text(f"{'Phong: ' + room_name:^{W}}\n")
     p.text("-" * W + "\n")
-
-    p.text(f"Phong  : {room_name}\n")
-    p.text(f"Gio    : {timezone.localtime(now).strftime('%d/%m/%Y %H:%M')}\n")
+    p.set(align="left")
+    p.text(f"Gio    : {timezone.localtime(now).strftime('%H:%M %d/%m/%Y')}\n")
     p.text("=" * W + "\n")
 
-    p.text(f"{'Dich vu:':<16}{totals['total_service']:>12,}d\n")
-    p.text(f"{'Do an/uong:':<16}{totals['total_food']:>12,}d\n")
+    p.set(bold=False)
+    p.text(f"{'Dich vu:':<{W-12}}{totals['total_service']:>12,}d\n")
+    p.text(f"{'Do an/uong:':<{W-12}}{totals['total_food']:>12,}d\n")
     if totals["total_outside"] > 0:
-        p.text(f"{'Mua ngoai:':<16}{totals['total_outside']:>12,}d\n")
+        p.text(f"{'Mua ngoai:':<{W-12}}{totals['total_outside']:>12,}d\n")
     p.text("-" * W + "\n")
     p.set(bold=True)
-    p.text(f"{'Tam tinh:':<16}{subtotal:>12,}d\n")
+    p.text(f"{'Tam tinh:':<{W-12}}{subtotal:>12,}d\n")
     if discount_percent > 0:
         label = f"Giam gia {discount_percent}%:"
-        p.text(f"{label:<16}{-discount_amount:>12,}d\n")
+        p.text(f"{label:<{W-12}}{-discount_amount:>12,}d\n")
     p.text("=" * W + "\n")
-    p.text(f"TONG THANH TOAN:\n")
+    p.text("TONG THANH TOAN:\n")
     p.text(f"{total_after_discount:>{W-1},}d\n")
     p.set(bold=False)
 
-    # QR chuyen khoan
     bank_bin = Config.get("bank_id", "")
     bank_account = Config.get("bank_account", "")
     account_holder = Config.get("account_holder", "")
-
     if bank_bin and bank_account:
         try:
             p.text("=" * W + "\n")

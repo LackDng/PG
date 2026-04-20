@@ -5,6 +5,7 @@ urlpatterns = [
     # Auth
     path("login/", auth.login_view, name="login"),
     path("logout/", auth.logout_view, name="logout"),
+    path("account/change-password/", auth.change_password_view, name="change_password"),
 
     # Dashboard
     path("", rooms.dashboard, name="dashboard"),

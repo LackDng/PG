@@ -32,7 +32,18 @@
         <div class="card-body">
           <div class="mb-3">
             <label class="form-label fw-semibold">Tên cửa hàng</label>
-            <input type="text" name="shop_name" class="form-control" value="{{ configs.shop_name }}">
+            <input type="text" name="shop_name" class="form-control" value="{{ configs.shop_name }}"
+              placeholder="VD: QUEEN KARAOKE">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Địa chỉ <span class="text-muted fw-normal">(in trên hóa đơn)</span></label>
+            <input type="text" name="shop_address" class="form-control" value="{{ configs.shop_address }}"
+              placeholder="VD: 179 Xô Viết Nghệ Tĩnh, Đà Nẵng">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Hotline <span class="text-muted fw-normal">(in trên hóa đơn)</span></label>
+            <input type="text" name="shop_phone" class="form-control" value="{{ configs.shop_phone }}"
+              placeholder="VD: 1900 5225">
           </div>
         </div>
       </div>

@@ -203,6 +203,8 @@ def system_config(request):
         "printer_ip": Config.get("printer_ip", ""),
         "printer_port": Config.get("printer_port", "9100"),
         "shop_name": Config.get("shop_name", "KARAOKE"),
+        "shop_address": Config.get("shop_address", ""),
+        "shop_phone": Config.get("shop_phone", ""),
         "bank_id": Config.get("bank_id", ""),
         "bank_account": Config.get("bank_account", ""),
         "account_holder": Config.get("account_holder", ""),
@@ -212,6 +214,8 @@ def system_config(request):
         Config.set("printer_ip", request.POST.get("printer_ip", "").strip())
         Config.set("printer_port", request.POST.get("printer_port", "9100").strip())
         Config.set("shop_name", request.POST.get("shop_name", "KARAOKE").strip())
+        Config.set("shop_address", request.POST.get("shop_address", "").strip())
+        Config.set("shop_phone", request.POST.get("shop_phone", "").strip())
         Config.set("bank_id", request.POST.get("bank_id", "").strip())
         Config.set("bank_account", request.POST.get("bank_account", "").strip())
         Config.set("account_holder", request.POST.get("account_holder", "").strip())
