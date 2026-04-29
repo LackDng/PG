@@ -258,6 +258,9 @@ def print_temp_bill_view(request, session_id):
 
 @login_required_custom
 def api_list_printers(request):
-    """Tra ve danh sach may in Windows dang cai."""
-    from core.printing import get_windows_printers
-    return JsonResponse({"printers": get_windows_printers()})
+    """Tra ve danh sach may in Windows dang cai va may in mac dinh."""
+    from core.printing import get_windows_printers, get_default_windows_printer
+    return JsonResponse({
+        "printers": get_windows_printers(),
+        "default": get_default_windows_printer(),
+    })

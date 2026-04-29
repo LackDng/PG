@@ -38,7 +38,7 @@
                 <td>{{ so.service_name }}</td>
                 <td class="small text-muted">{{ so.started_at|date:"H:i" }}</td>
                 <td class="small">{{ so.get_duration_minutes }}p</td>
-                <td class="text-end fw-bold">{{ so.calculate_cost|floatformat:0 }}đ</td>
+                <td class="text-end fw-bold">{{ so.calculate_cost|vnd }}đ</td>
               </tr>
               {% empty %}
               <tr><td colspan="4" class="text-center text-muted">Không có dịch vụ</td></tr>
@@ -65,8 +65,8 @@
                   {% if item.item_type == 'outside' %}<span class="badge bg-warning text-dark ms-1">Ngoài</span>{% endif %}
                 </td>
                 <td class="text-center">{{ item.quantity }}</td>
-                <td class="text-end">{{ item.unit_price|floatformat:0 }}đ</td>
-                <td class="text-end fw-bold">{{ item.subtotal|floatformat:0 }}đ</td>
+                <td class="text-end">{{ item.unit_price|vnd }}đ</td>
+                <td class="text-end fw-bold">{{ item.subtotal|vnd }}đ</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -88,19 +88,19 @@
           <table class="table table-sm mb-3">
             <tr>
               <td>Dịch vụ</td>
-              <td class="text-end">{{ totals.total_service|floatformat:0 }}đ</td>
+              <td class="text-end">{{ totals.total_service|vnd }}đ</td>
             </tr>
             <tr>
               <td>Đồ ăn/uống</td>
-              <td class="text-end">{{ totals.total_food|floatformat:0 }}đ</td>
+              <td class="text-end">{{ totals.total_food|vnd }}đ</td>
             </tr>
             <tr>
               <td>Mua ngoài</td>
-              <td class="text-end">{{ totals.total_outside|floatformat:0 }}đ</td>
+              <td class="text-end">{{ totals.total_outside|vnd }}đ</td>
             </tr>
             <tr class="fw-bold table-light">
               <td>Tổng cộng</td>
-              <td class="text-end" id="subtotalDisplay">{{ totals.subtotal|floatformat:0 }}đ</td>
+              <td class="text-end" id="subtotalDisplay">{{ totals.subtotal|vnd }}đ</td>
             </tr>
           </table>
 
@@ -165,7 +165,7 @@
           <!-- Tổng thanh toán -->
           <div class="alert alert-success text-center mb-3">
             <div class="small text-muted">TỔNG THANH TOÁN</div>
-            <div class="fw-bold fs-3" id="finalTotal">{{ totals.subtotal|floatformat:0 }}đ</div>
+            <div class="fw-bold fs-3" id="finalTotal">{{ totals.subtotal|vnd }}đ</div>
           </div>
 
           {% if bank_id and bank_account %}

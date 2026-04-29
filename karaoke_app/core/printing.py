@@ -33,6 +33,16 @@ def get_windows_printers():
         return []
 
 
+def get_default_windows_printer():
+    """Tra ve ten may in mac dinh cua Windows, hoac '' neu khong ho tro."""
+    if not WIN32_AVAILABLE:
+        return ""
+    try:
+        return _win32print.GetDefaultPrinter()
+    except Exception:
+        return ""
+
+
 def _send_raw_to_windows_printer(printer_name, raw_bytes):
     hprinter = _win32print.OpenPrinter(printer_name)
     try:

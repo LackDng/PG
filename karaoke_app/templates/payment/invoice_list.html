@@ -42,9 +42,9 @@
           <td class="fw-semibold">{{ inv.session.room.name }}</td>
           <td class="small">{{ inv.created_at|date:"d/m/Y H:i" }}</td>
           <td class="small">{{ inv.created_by.get_display_name|default:"-" }}</td>
-          <td class="text-end small">{{ inv.total_service|floatformat:0 }}đ</td>
-          <td class="text-end small">{{ inv.total_food|floatformat:0 }}đ</td>
-          <td class="text-end fw-bold">{{ inv.total_after_discount|floatformat:0 }}đ</td>
+          <td class="text-end small">{{ inv.total_service|vnd }}đ</td>
+          <td class="text-end small">{{ inv.total_food|vnd }}đ</td>
+          <td class="text-end fw-bold">{{ inv.total_after_discount|vnd }}đ</td>
           <td>
             {% if inv.payment_method == "cash" %}<span class="badge bg-success">Tiền mặt</span>
             {% elif inv.payment_method == "transfer" %}<span class="badge bg-info">Chuyển khoản</span>

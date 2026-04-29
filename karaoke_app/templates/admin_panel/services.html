@@ -25,7 +25,7 @@
         <tr>
           <td>{{ svc.id }}</td>
           <td class="fw-semibold">{{ svc.name }}</td>
-          <td>{{ svc.base_price|floatformat:0 }}đ</td>
+          <td>{{ svc.base_price|vnd }}đ</td>
           <td>{{ svc.sort_order }}</td>
           <td>{% if svc.is_active %}<span class="badge bg-success">Có</span>{% else %}<span class="badge bg-secondary">Không</span>{% endif %}</td>
           <td>

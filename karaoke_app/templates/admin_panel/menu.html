@@ -26,7 +26,7 @@
           <td>{{ item.id }}</td>
           <td class="fw-semibold">{{ item.name }}</td>
           <td class="text-muted small">{{ item.category.name|default:"—" }}</td>
-          <td class="text-end">{{ item.price|floatformat:0 }}đ</td>
+          <td class="text-end">{{ item.price|vnd }}đ</td>
           <td>{{ item.sort_order }}</td>
           <td>{% if item.is_active %}<span class="badge bg-success">Có</span>{% else %}<span class="badge bg-secondary">Không</span>{% endif %}</td>
           <td>

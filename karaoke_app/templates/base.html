@@ -97,11 +97,12 @@ async function loadWindowsPrinters(selectEl) {
     const resp = await fetch('/api/printers/');
     const data = await resp.json();
     const printers = data.printers || [];
+    const defaultPrinter = data.default || '';
     if (printers.length === 0) {
       selectEl.innerHTML = '<option value="">Không tìm thấy máy in Windows</option>';
     } else {
       selectEl.innerHTML = printers.map(n =>
-        `<option value="${n}">${n}</option>`).join('');
+        `<option value="${n}"${n === defaultPrinter ? ' selected' : ''}>${n}</option>`).join('');
     }
   } catch {
     selectEl.innerHTML = '<option value="">Lỗi tải danh sách</option>';
