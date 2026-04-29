@@ -28,7 +28,7 @@
     <div class="card border-success">
       <div class="card-body text-center">
         <div class="text-muted small">Tổng doanh thu</div>
-        <div class="fw-bold fs-5 text-success">{{ total_revenue|floatformat:0 }}đ</div>
+        <div class="fw-bold fs-5 text-success">{{ total_revenue|vnd }}đ</div>
       </div>
     </div>
   </div>
@@ -36,7 +36,7 @@
     <div class="card border-primary">
       <div class="card-body text-center">
         <div class="text-muted small">Tiền mặt</div>
-        <div class="fw-bold fs-5 text-primary">{{ total_cash|floatformat:0 }}đ</div>
+        <div class="fw-bold fs-5 text-primary">{{ total_cash|vnd }}đ</div>
       </div>
     </div>
   </div>
@@ -44,7 +44,7 @@
     <div class="card border-info">
       <div class="card-body text-center">
         <div class="text-muted small">Chuyển khoản</div>
-        <div class="fw-bold fs-5 text-info">{{ total_transfer|floatformat:0 }}đ</div>
+        <div class="fw-bold fs-5 text-info">{{ total_transfer|vnd }}đ</div>
       </div>
     </div>
   </div>
@@ -52,7 +52,7 @@
     <div class="card border-warning">
       <div class="card-body text-center">
         <div class="text-muted small">Tip</div>
-        <div class="fw-bold fs-5 text-warning">{{ total_tip|floatformat:0 }}đ</div>
+        <div class="fw-bold fs-5 text-warning">{{ total_tip|vnd }}đ</div>
       </div>
     </div>
   </div>
@@ -64,7 +64,7 @@
     <div class="card bg-light">
       <div class="card-body text-center">
         <div class="text-muted small"><i class="bi bi-headset me-1"></i>Dịch vụ</div>
-        <div class="fw-bold">{{ total_service|floatformat:0 }}đ</div>
+        <div class="fw-bold">{{ total_service|vnd }}đ</div>
       </div>
     </div>
   </div>
@@ -72,7 +72,7 @@
     <div class="card bg-light">
       <div class="card-body text-center">
         <div class="text-muted small"><i class="bi bi-cup-straw me-1"></i>Đồ ăn/uống</div>
-        <div class="fw-bold">{{ total_food|floatformat:0 }}đ</div>
+        <div class="fw-bold">{{ total_food|vnd }}đ</div>
       </div>
     </div>
   </div>
@@ -80,7 +80,7 @@
     <div class="card bg-light">
       <div class="card-body text-center">
         <div class="text-muted small"><i class="bi bi-bag me-1"></i>Mua ngoài</div>
-        <div class="fw-bold">{{ total_outside|floatformat:0 }}đ</div>
+        <div class="fw-bold">{{ total_outside|vnd }}đ</div>
       </div>
     </div>
   </div>
@@ -88,7 +88,7 @@
 
 {% if total_discount > 0 %}
 <div class="alert alert-warning">
-  <i class="bi bi-tag me-1"></i>Tổng giảm giá trong ngày: <strong>{{ total_discount|floatformat:0 }}đ</strong>
+  <i class="bi bi-tag me-1"></i>Tổng giảm giá trong ngày: <strong>{{ total_discount|vnd }}đ</strong>
 </div>
 {% endif %}
 
@@ -102,7 +102,7 @@
         <tr>
           <th>Phòng</th>
           <th class="text-center">Số lần</th>
-          <th class="text-end">Dìch vấ</th>
+          <th class="text-end">Dịch vụ</th>
           <th class="text-end">Đồ ăn/uống</th>
           <th class="text-end">Mua ngoài</th>
           <th class="text-end">Tổng</th>
@@ -113,10 +113,10 @@
         <tr>
           <td class="fw-semibold">{{ rs.room_name }}</td>
           <td class="text-center">{{ rs.count }}</td>
-          <td class="text-end">{{ rs.service|floatformat:0 }}đ</td>
-          <td class="text-end">{{ rs.food|floatformat:0 }}đ</td>
-          <td class="text-end">{{ rs.outside|floatformat:0 }}đ</td>
-          <td class="text-end fw-bold text-success">{{ rs.total|floatformat:0 }}đ</td>
+          <td class="text-end">{{ rs.service|vnd }}đ</td>
+          <td class="text-end">{{ rs.food|vnd }}đ</td>
+          <td class="text-end">{{ rs.outside|vnd }}đ</td>
+          <td class="text-end fw-bold text-success">{{ rs.total|vnd }}đ</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -135,7 +135,7 @@
           <th>#</th>
           <th>Phòng</th>
           <th>Giờ</th>
-          <th class="text-end">Dìch vấ</th>
+          <th class="text-end">Dịch vụ</th>
           <th class="text-end">Đồ ăn</th>
           <th class="text-end">Giảm giá</th>
           <th class="text-end">Tổng</th>
@@ -149,12 +149,12 @@
           <td><a href="{% url 'invoice_detail' inv.id %}">#{{ inv.id }}</a></td>
           <td>{{ inv.session.room.name }}</td>
           <td class="small text-muted">{{ inv.created_at|date:"H:i" }}</td>
-          <td class="text-end">{{ inv.total_service|floatformat:0 }}đ</td>
-          <td class="text-end">{{ inv.total_food|floatformat:0 }}đ</td>
+          <td class="text-end">{{ inv.total_service|vnd }}đ</td>
+          <td class="text-end">{{ inv.total_food|vnd }}đ</td>
           <td class="text-end text-danger">
-            {% if inv.discount_percent > 0 %}-{{ inv.discount_amount|floatformat:0 }}đ ({{ inv.discount_percent }}%){% else %}—{% endif %}
+            {% if inv.discount_percent > 0 %}-{{ inv.discount_amount|vnd }}đ ({{ inv.discount_percent }}%){% else %}—{% endif %}
           </td>
-          <td class="text-end fw-bold text-success">{{ inv.total_after_discount|floatformat:0 }}đ</td>
+          <td class="text-end fw-bold text-success">{{ inv.total_after_discount|vnd }}đ</td>
           <td>
             {% if inv.payment_method == 'cash' %}
               <span class="badge bg-success">Tiền mặt</span>

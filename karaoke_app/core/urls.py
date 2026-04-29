@@ -20,6 +20,7 @@ urlpatterns = [
     # Services
     path("sessions/<int:session_id>/add-service/", rooms.add_service_order, name="add_service_order"),
     path("service-orders/<int:order_id>/stop/", rooms.stop_service_order, name="stop_service_order"),
+    path("service-orders/<int:order_id>/cancel/", rooms.cancel_service_order, name="cancel_service_order"),
 
     # Order items
     path("sessions/<int:session_id>/add-menu/", rooms.add_menu_item, name="add_menu_item"),

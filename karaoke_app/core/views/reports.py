@@ -9,7 +9,6 @@ from core.decorators import accountant_required, admin_required, login_required_
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
-
 def _get_report_data(report_date):
     """Lấy dữ liệu báo cáo cho 1 ngày. Trả về dict."""
     tz = timezone.get_current_timezone()
@@ -232,6 +231,66 @@ def _build_excel(report_date, data):
     col_widths = [6, 15, 20, 15, 15, 15, 12, 15, 15, 12, 15, 16, 16, 18, 18]
     for i, w in enumerate(col_widths, 1):
         ws2.column_dimensions[ws2.cell(row=1, column=i).column_letter].width = w
+
+    # ─── Sheet 3: Chi tiết từng bill ──────────────────────────────────────────
+    ws3 = wb.create_sheet("Chi tiết bill")
+
+    detail3_headers = [
+        "HĐ #", "Phòng", "Giờ TT",
+        "Loại", "Tên hàng", "Bắt đầu", "Kết thúc", "Thời gian",
+        "SL", "Đơn giá (đ)", "Thành tiền (đ)",
+    ]
+    for c, h in enumerate(detail3_headers, 1):
+        cell = ws3.cell(row=1, column=c, value=h)
+        cell.font = white_font
+        cell.fill = header_fill
+        cell.alignment = center
+        cell.border = thin
+
+    money_cols3 = {10, 11}
+    r3 = 2
+    for inv in data["invoices"]:
+        session = inv.session
+        inv_time = timezone.localtime(inv.created_at).strftime("%d/%m/%Y %H:%M")
+
+        for so in session.get_all_service_orders().exclude(status=ServiceOrder.STATUS_CANCELLED).order_by("started_at"):
+            end = so.ended_at or inv.created_at
+            dur_min = int((end - so.started_at).total_seconds() / 60)
+            dur_str = f"{dur_min // 60}h{dur_min % 60:02d}p" if dur_min >= 60 else f"{dur_min}p"
+            cost = so.calculate_cost(at_time=inv.created_at)
+            row3 = [
+                inv.id, session.room.name, inv_time,
+                "Dịch vụ", so.service_name,
+                timezone.localtime(so.started_at).strftime("%H:%M"),
+                timezone.localtime(end).strftime("%H:%M"),
+                dur_str, "", so.base_price, cost,
+            ]
+            for c, v in enumerate(row3, 1):
+                cell = ws3.cell(row=r3, column=c, value=v)
+                cell.border = thin
+                if c in money_cols3 and isinstance(v, (int, float)):
+                    cell.number_format = '#,##0'
+                    cell.alignment = right
+            r3 += 1
+
+        for item in session.get_all_order_items().order_by("created_at"):
+            row3 = [
+                inv.id, session.room.name, inv_time,
+                "Đồ ăn/uống" if item.item_type == "menu" else "Mua ngoài",
+                item.name, "", "", "",
+                item.quantity, item.unit_price, item.subtotal,
+            ]
+            for c, v in enumerate(row3, 1):
+                cell = ws3.cell(row=r3, column=c, value=v)
+                cell.border = thin
+                if c in money_cols3 and isinstance(v, (int, float)):
+                    cell.number_format = '#,##0'
+                    cell.alignment = right
+            r3 += 1
+
+    col3_widths = [8, 15, 18, 14, 25, 10, 10, 12, 6, 16, 16]
+    for i, w in enumerate(col3_widths, 1):
+        ws3.column_dimensions[ws3.cell(row=1, column=i).column_letter].width = w
 
     return wb
 

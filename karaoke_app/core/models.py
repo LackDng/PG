@@ -153,10 +153,12 @@ class RoomSession(models.Model):
 class ServiceOrder(models.Model):
     STATUS_RUNNING = "running"
     STATUS_STOPPED = "stopped"
+    STATUS_CANCELLED = "cancelled"
 
     STATUS_CHOICES = [
         (STATUS_RUNNING, "Đang chạy"),
         (STATUS_STOPPED, "Đã dừng"),
+        (STATUS_CANCELLED, "Đã hủy"),
     ]
 
     session = models.ForeignKey(RoomSession, on_delete=models.CASCADE, related_name="service_orders")
@@ -167,6 +169,7 @@ class ServiceOrder(models.Model):
     ended_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_RUNNING)
     started_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="started_service_orders")
+    cancel_reason = models.TextField(blank=True)
 
     class Meta:
         ordering = ["started_at"]
@@ -278,23 +281,25 @@ class Config(models.Model):
 
 
 class ActivityLog(models.Model):
-    ACTION_OPEN_ROOM      = "open_room"
-    ACTION_CANCEL_ROOM    = "cancel_room"
-    ACTION_ADD_SERVICE    = "add_service"
-    ACTION_STOP_SERVICE   = "stop_service"
-    ACTION_ADD_FOOD       = "add_food"
-    ACTION_ADD_OUTSIDE    = "add_outside"
-    ACTION_REMOVE_ITEM    = "remove_item"
-    ACTION_MERGE_TABLE    = "merge_table"
-    ACTION_UNMERGE_TABLE  = "unmerge_table"
-    ACTION_CHECKOUT       = "checkout"
-    ACTION_DELETE_REVENUE = "delete_revenue"
+    ACTION_OPEN_ROOM       = "open_room"
+    ACTION_CANCEL_ROOM     = "cancel_room"
+    ACTION_ADD_SERVICE     = "add_service"
+    ACTION_STOP_SERVICE    = "stop_service"
+    ACTION_CANCEL_SERVICE  = "cancel_service"
+    ACTION_ADD_FOOD        = "add_food"
+    ACTION_ADD_OUTSIDE     = "add_outside"
+    ACTION_REMOVE_ITEM     = "remove_item"
+    ACTION_MERGE_TABLE     = "merge_table"
+    ACTION_UNMERGE_TABLE   = "unmerge_table"
+    ACTION_CHECKOUT        = "checkout"
+    ACTION_DELETE_REVENUE  = "delete_revenue"
 
     ACTION_CHOICES = [
         (ACTION_OPEN_ROOM,      "Mở phòng"),
         (ACTION_CANCEL_ROOM,    "Hủy phòng"),
         (ACTION_ADD_SERVICE,    "Thêm dịch vụ"),
         (ACTION_STOP_SERVICE,   "Dừng dịch vụ"),
+        (ACTION_CANCEL_SERVICE, "Hủy dịch vụ"),
         (ACTION_ADD_FOOD,       "Gọi đồ ăn/uống"),
         (ACTION_ADD_OUTSIDE,    "Thêm mua ngoài"),
         (ACTION_REMOVE_ITEM,    "Xóa món"),

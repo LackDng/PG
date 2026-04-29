@@ -20,7 +20,7 @@
     <div class="text-muted small align-self-center">
       Mở lúc {{ session.opened_at|date:"H:i d/m/Y" }}
     </div>
-    {% if not service_orders and not order_items_menu and not order_items_outside %}
+    {% if user.can_manage_admin %}
     <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#cancelRoomModal">
       <i class="bi bi-x-circle me-1"></i>Hủy phòng
     </button>
@@ -82,10 +82,12 @@
                   </span>
                 </td>
                 <td class="text-end fw-bold service-cost" data-id="{{ bd.order.id }}">
-                  {{ bd.total|floatformat:0 }}đ
+                  {{ bd.total|vnd }}đ
                 </td>
                 <td class="text-center">
-                  {% if bd.status == 'free' %}
+                  {% if bd.order.status == 'cancelled' %}
+                    <span class="badge bg-danger">Đã hủy</span>
+                  {% elif bd.status == 'free' %}
                     <span class="badge bg-success">Miễn phí</span>
                   {% elif bd.status == 'package' %}
                     <span class="badge bg-primary">Gói chuẩn</span>
@@ -98,7 +100,7 @@
                     <span class="badge bg-dark">Đã dừng</span>
                   {% endif %}
                 </td>
-                <td>
+                <td class="text-nowrap">
                   {% if bd.order.status == 'running' %}
                   <form method="post" action="{% url 'stop_service_order' bd.order.id %}" class="d-inline">
                     {% csrf_token %}
@@ -106,6 +108,17 @@
                       <i class="bi bi-stop-fill"></i>
                     </button>
                   </form>
+                  {% if bd.can_cancel %}
+                  <button type="button" class="btn btn-sm btn-outline-warning ms-1 cancel-svc-btn"
+                    title="Hủy (trong 30 phút đầu)"
+                    data-url="{% url 'cancel_service_order' bd.order.id %}"
+                    data-name="{{ bd.order.service_name }}">
+                    <i class="bi bi-x-circle"></i>
+                  </button>
+                  {% endif %}
+                  {% endif %}
+                  {% if bd.order.status == 'cancelled' and bd.order.cancel_reason %}
+                  <small class="text-muted d-block" style="font-size:0.7rem">{{ bd.order.cancel_reason }}</small>
                   {% endif %}
                 </td>
               </tr>
@@ -142,8 +155,8 @@
               <tr>
                 <td>{{ item.name }}</td>
                 <td class="text-center">{{ item.quantity }}</td>
-                <td class="text-end">{{ item.unit_price|floatformat:0 }}đ</td>
-                <td class="text-end fw-bold">{{ item.subtotal|floatformat:0 }}đ</td>
+                <td class="text-end">{{ item.unit_price|vnd }}đ</td>
+                <td class="text-end fw-bold">{{ item.subtotal|vnd }}đ</td>
                 <td>
                   <form method="post" action="{% url 'remove_order_item' item.id %}" class="d-inline">
                     {% csrf_token %}
@@ -183,8 +196,8 @@
               <tr>
                 <td>{{ item.name }}</td>
                 <td class="text-center">{{ item.quantity }}</td>
-                <td class="text-end">{{ item.unit_price|floatformat:0 }}đ</td>
-                <td class="text-end fw-bold">{{ item.subtotal|floatformat:0 }}đ</td>
+                <td class="text-end">{{ item.unit_price|vnd }}đ</td>
+                <td class="text-end fw-bold">{{ item.subtotal|vnd }}đ</td>
                 <td>
                   <form method="post" action="{% url 'remove_order_item' item.id %}" class="d-inline">
                     {% csrf_token %}
@@ -203,9 +216,8 @@
         {% endif %}
       </div>
     </div>
-  </div>
 
-  <!-- Lịch sử hoạt động -->
+    <!-- Lịch sử hoạt động -->
     <div class="card mb-3">
       <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
         <span><i class="bi bi-clock-history me-2"></i>Lịch sử thao tác</span>
@@ -224,7 +236,7 @@
                   <span class="badge
                     {% if log.action == 'open_room' %}bg-success
                     {% elif log.action == 'checkout' %}bg-primary
-                    {% elif log.action == 'stop_service' or log.action == 'remove_item' %}bg-danger
+                    {% elif log.action == 'stop_service' or log.action == 'remove_item' or log.action == 'cancel_service' or log.action == 'cancel_room' %}bg-danger
                     {% elif log.action == 'merge_table' or log.action == 'unmerge_table' %}bg-warning text-dark
                     {% else %}bg-secondary{% endif %} me-1">
                     {{ log.get_action_display }}
@@ -256,19 +268,19 @@
         <table class="table table-sm mb-3">
           <tr>
             <td>Dịch vụ</td>
-            <td class="text-end fw-bold" id="total-service">{{ totals.total_service|floatformat:0 }}đ</td>
+            <td class="text-end fw-bold" id="total-service">{{ totals.total_service|vnd }}đ</td>
           </tr>
           <tr>
             <td>Đồ ăn/uống</td>
-            <td class="text-end fw-bold">{{ totals.total_food|floatformat:0 }}đ</td>
+            <td class="text-end fw-bold">{{ totals.total_food|vnd }}đ</td>
           </tr>
           <tr>
             <td>Mua ngoài</td>
-            <td class="text-end fw-bold">{{ totals.total_outside|floatformat:0 }}đ</td>
+            <td class="text-end fw-bold">{{ totals.total_outside|vnd }}đ</td>
           </tr>
           <tr class="table-success fw-bold">
             <td>TỔNG CỘNG</td>
-            <td class="text-end fs-5" id="total-all">{{ totals.subtotal|floatformat:0 }}đ</td>
+            <td class="text-end fs-5" id="total-all">{{ totals.subtotal|vnd }}đ</td>
           </tr>
         </table>
 
@@ -312,11 +324,18 @@
           <div class="row g-2">
             {% for st in service_types %}
             <div class="col-12">
+              {% if st.id in running_service_type_ids %}
+              <div class="btn btn-outline-secondary w-100 text-start d-flex justify-content-between disabled">
+                <span><i class="bi bi-headset me-2 text-muted"></i><span class="text-muted">{{ st.name }}</span></span>
+                <span class="badge bg-secondary">Đang sử dụng</span>
+              </div>
+              {% else %}
               <button type="submit" name="service_type_id" value="{{ st.id }}"
                 class="btn btn-outline-primary w-100 text-start d-flex justify-content-between">
                 <span><i class="bi bi-headset me-2"></i>{{ st.name }}</span>
-                <span class="badge bg-primary">{{ st.base_price|floatformat:0 }}đ/120p</span>
+                <span class="badge bg-primary">{{ st.base_price|vnd }}đ/120p</span>
               </button>
+              {% endif %}
             </div>
             {% empty %}
             <div class="col-12">
@@ -353,7 +372,7 @@
                 data-item-id="{{ item.id }}"
                 data-item-name="{{ item.name }}">
                 <div class="fw-semibold small">{{ item.name }}</div>
-                <div class="text-primary small">{{ item.price|floatformat:0 }}đ</div>
+                <div class="text-primary small">{{ item.price|vnd }}đ</div>
               </button>
             </div>
             {% empty %}
@@ -436,7 +455,7 @@
 
           <div class="alert alert-info text-center py-2 mb-3">
             <div class="small text-muted">Tổng thanh toán</div>
-            <div class="fw-bold fs-4" id="tempFinalTotal">{{ totals.subtotal|floatformat:0 }}đ</div>
+            <div class="fw-bold fs-4" id="tempFinalTotal">{{ totals.subtotal|vnd }}đ</div>
           </div>
 
           {% include "partials/printer_widget.html" with widget_id="temp" printer_ip=printer_ip printer_port=printer_port %}
@@ -452,7 +471,7 @@
   </div>
 </div>
 
-<!-- Modal: Hủy phòng -->
+<!-- Modal: Hủy phòng (admin only) -->
 <div class="modal fade" id="cancelRoomModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -460,19 +479,60 @@
         <h5 class="modal-title"><i class="bi bi-x-circle me-2"></i>Hủy phòng</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body">
-        <p>Bạn có chắc muốn <strong>hủy phòng {{ room.name }}</strong>?</p>
-        <p class="text-muted small mb-0">Phòng sẽ trở về trạng thái trống, không tính tiền và không xuất hóa đơn.</p>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-        <form method="post" action="{% url 'cancel_room' session.id %}" class="d-inline">
-          {% csrf_token %}
+      <form method="post" action="{% url 'cancel_room' session.id %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <p>Bạn có chắc muốn <strong>hủy phòng {{ room.name }}</strong>?</p>
+          <p class="text-muted small">Phòng sẽ trở về trạng thái trống, không tính tiền và không xuất hóa đơn.</p>
+          {% if service_orders or order_items_menu or order_items_outside %}
+          <div class="alert alert-warning small py-2">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Phòng đang có dịch vụ/đồ ăn. Tất cả sẽ bị dừng và hủy.
+          </div>
+          {% endif %}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Lý do hủy <span class="text-danger">*</span></label>
+            <textarea name="cancel_reason" class="form-control" rows="3" required
+              placeholder="Nhập lý do hủy phòng..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
           <button type="submit" class="btn btn-danger">
             <i class="bi bi-x-circle me-1"></i>Xác nhận hủy phòng
           </button>
-        </form>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Hủy dịch vụ (trong 30 phút) -->
+<div class="modal fade" id="cancelServiceModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning">
+        <h5 class="modal-title"><i class="bi bi-x-circle me-2"></i>Hủy dịch vụ</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
+      <form method="post" id="cancelServiceForm">
+        {% csrf_token %}
+        <div class="modal-body">
+          <p>Hủy dịch vụ: <strong id="cancelServiceName"></strong></p>
+          <p class="text-muted small">Dịch vụ hủy trong 30 phút đầu sẽ không tính phí.</p>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Lý do hủy <span class="text-danger">*</span></label>
+            <textarea name="cancel_reason" class="form-control" rows="3" required
+              placeholder="Nhập lý do hủy..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+          <button type="submit" class="btn btn-warning">
+            <i class="bi bi-x-circle me-1"></i>Xác nhận hủy
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
@@ -515,7 +575,6 @@
 
 {% block extra_js %}
 <script>
-// Timer hiển thị thời gian thực cho từng dịch vụ
 function formatDuration(totalSeconds) {
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
@@ -524,36 +583,16 @@ function formatDuration(totalSeconds) {
   return `${String(m).padStart(2,'0')}p${String(s).padStart(2,'0')}s`;
 }
 
-function calcCost(startedAt, basePrice) {
-  const now = new Date();
-  const elapsed = (now - startedAt) / 1000; // seconds
-  const minutes = elapsed / 60;
-  const FREE_MIN = 30, PKG_MIN = 120, GRACE_MIN = 15, BLOCK_MIN = 25, BLOCK_PRICE = 100000;
-
-  if (minutes <= FREE_MIN) return 0;
-  if (minutes <= PKG_MIN) return basePrice;
-
-  const overtime = minutes - PKG_MIN;
-  if (overtime <= GRACE_MIN) return basePrice;
-
-  const billable = overtime - GRACE_MIN;
-  const blocks = Math.ceil(billable / BLOCK_MIN);
-  return basePrice + blocks * BLOCK_PRICE;
-}
-
 function updateTimers() {
-  let totalService = 0;
   document.querySelectorAll('[data-started]').forEach(el => {
     const started = new Date(el.dataset.started);
     const now = new Date();
     const elapsed = Math.floor((now - started) / 1000);
-
     if (el.classList.contains('timer-display')) {
       el.textContent = formatDuration(elapsed);
     }
   });
 
-  // Update service costs via API
   const roomId = {{ room.id }};
   fetch(`/rooms/${roomId}/status-api/`)
     .then(r => r.json())
@@ -584,12 +623,20 @@ document.querySelectorAll('.menu-select-btn').forEach(btn => {
   });
 });
 
-// Search food
 document.getElementById('searchFood').addEventListener('input', function() {
   const q = this.value.toLowerCase();
   document.querySelectorAll('.menu-item-btn').forEach(div => {
     const name = div.querySelector('.fw-semibold').textContent.toLowerCase();
     div.style.display = name.includes(q) ? '' : 'none';
+  });
+});
+
+// Cancel service modal
+document.querySelectorAll('.cancel-svc-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.getElementById('cancelServiceForm').action = this.dataset.url;
+    document.getElementById('cancelServiceName').textContent = this.dataset.name;
+    document.querySelector('#cancelServiceModal textarea[name="cancel_reason"]').value = '';
   });
 });
 

@@ -3,7 +3,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.http import JsonResponse
 from core.models import Room, RoomSession, ServiceOrder, OrderItem, ServiceType, MenuItem, MenuCategory, ActivityLog, Config, Invoice
-from core.decorators import login_required_custom, staff_required
+from core.decorators import login_required_custom, staff_required, admin_required
 from core.pricing import calculate_session_total, get_cost_breakdown
 
 
@@ -62,7 +62,15 @@ def room_detail(request, room_id):
         end = so.ended_at or now
         bd = get_cost_breakdown(so.started_at, end, so.base_price)
         bd["order"] = so
+        elapsed_min = (now - so.started_at).total_seconds() / 60
+        bd["can_cancel"] = (so.status == ServiceOrder.STATUS_RUNNING and elapsed_min <= 30)
         service_breakdowns.append(bd)
+
+    # Service types currently running in any room (for uniqueness check in UI)
+    running_service_type_ids = set(
+        ServiceOrder.objects.filter(status=ServiceOrder.STATUS_RUNNING)
+        .values_list("service_type_id", flat=True)
+    )
 
     # Lịch sử hoạt động của session (và các session đã gộp)
     all_session_ids = [session.pk] + list(session.merged_sessions.values_list("pk", flat=True))
@@ -78,6 +86,7 @@ def room_detail(request, room_id):
         "order_items_outside": order_items_outside,
         "totals": totals,
         "service_types": service_types,
+        "running_service_type_ids": running_service_type_ids,
         "categories": categories,
         "menu_items": menu_items,
         "activity_logs": activity_logs,
@@ -177,7 +186,15 @@ def add_service_order(request, session_id):
         service_type_id = request.POST.get("service_type_id")
         service_type = get_object_or_404(ServiceType, pk=service_type_id, is_active=True)
 
-        so = ServiceOrder.objects.create(
+        conflict = ServiceOrder.objects.filter(
+            service_type=service_type, status=ServiceOrder.STATUS_RUNNING
+        ).select_related("session__room").first()
+        if conflict:
+            room_name = conflict.session.room.name
+            messages.error(request, f"Dịch vụ '{service_type.name}' đang được sử dụng tại {room_name}.")
+            return redirect("room_detail", room_id=session.room_id)
+
+        ServiceOrder.objects.create(
             session=session,
             service_type=service_type,
             service_name=service_type.name,
@@ -189,6 +206,35 @@ def add_service_order(request, session_id):
         messages.success(request, f"Đã thêm {service_type.name}.")
 
     return redirect("room_detail", room_id=session.room_id)
+
+
+@staff_required
+def cancel_service_order(request, order_id):
+    order = get_object_or_404(ServiceOrder, pk=order_id, status=ServiceOrder.STATUS_RUNNING)
+
+    elapsed_min = (timezone.now() - order.started_at).total_seconds() / 60
+    if elapsed_min > 30:
+        messages.error(request, "Chỉ được hủy dịch vụ trong vòng 30 phút đầu.")
+        return redirect("room_detail", room_id=order.session.room_id)
+
+    reason = request.POST.get("cancel_reason", "").strip()
+    if not reason:
+        messages.error(request, "Vui lòng nhập lý do hủy.")
+        return redirect("room_detail", room_id=order.session.room_id)
+
+    order.status = ServiceOrder.STATUS_CANCELLED
+    order.ended_at = timezone.now()
+    order.cancel_reason = reason
+    order.save()
+
+    ActivityLog.log(
+        ActivityLog.ACTION_CANCEL_SERVICE,
+        request.user,
+        f"Hủy dịch vụ '{order.service_name}' tại {order.session.room.name}. Lý do: {reason}",
+        session=order.session,
+    )
+    messages.success(request, f"Đã hủy dịch vụ {order.service_name}.")
+    return redirect("room_detail", room_id=order.session.room_id)
 
 
 @staff_required
@@ -307,18 +353,20 @@ def merge_table(request):
     return redirect("dashboard")
 
 
-@staff_required
+@admin_required
 def cancel_room(request, session_id):
-    """Hủy phòng khi khách không muốn dùng nữa (không tính tiền, không xuất hóa đơn)."""
+    """Admin hủy phòng (không tính tiền, không xuất hóa đơn). Yêu cầu lý do."""
     session = get_object_or_404(RoomSession, pk=session_id, status="open")
 
-    if session.get_all_service_orders().exists():
-        messages.error(request, "Không thể hủy phòng đã có dịch vụ. Hãy dừng tất cả dịch vụ trước hoặc thanh toán.")
+    reason = request.POST.get("cancel_reason", "").strip()
+    if not reason:
+        messages.error(request, "Vui lòng nhập lý do hủy phòng.")
         return redirect("room_detail", room_id=session.room_id)
 
-    if session.get_all_order_items().exists():
-        messages.error(request, "Không thể hủy phòng đã có đồ ăn/uống. Hãy xóa các món trước hoặc thanh toán.")
-        return redirect("room_detail", room_id=session.room_id)
+    # Stop all running services before cancelling
+    session.get_all_service_orders().filter(status=ServiceOrder.STATUS_RUNNING).update(
+        status=ServiceOrder.STATUS_STOPPED, ended_at=timezone.now()
+    )
 
     room = session.room
     session.status = RoomSession.STATUS_CANCELLED
@@ -331,7 +379,7 @@ def cancel_room(request, session_id):
     ActivityLog.log(
         ActivityLog.ACTION_CANCEL_ROOM,
         request.user,
-        f"Hủy phòng {room.name} (khách không sử dụng)",
+        f"Hủy phòng {room.name}. Lý do: {reason}",
         session=session,
     )
     messages.success(request, f"Đã hủy phòng {room.name}. Phòng sẵn sàng cho khách mới.")
