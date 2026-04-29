@@ -248,6 +248,7 @@ class Invoice(models.Model):
     payment_method = models.CharField(max_length=20, choices=PAYMENT_CHOICES, default=PAYMENT_CASH)
     cash_amount = models.IntegerField(default=0)
     transfer_amount = models.IntegerField(default=0)
+    note = models.TextField(blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="created_invoices")
     printer_ip = models.GenericIPAddressField(null=True, blank=True)

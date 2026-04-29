@@ -39,6 +39,7 @@ def checkout_view(request, session_id):
         payment_method = request.POST.get("payment_method", "cash")
         cash_amount = int(request.POST.get("cash_amount", 0) or 0)
         transfer_amount = int(request.POST.get("transfer_amount", 0) or 0)
+        note = request.POST.get("note", "").strip()
         do_print = request.POST.get("do_print") == "1"
         custom_printer_name = request.POST.get("printer_name", "").strip()
         custom_printer_ip = request.POST.get("printer_ip", "").strip() or printer_ip
@@ -77,6 +78,7 @@ def checkout_view(request, session_id):
             payment_method=payment_method,
             cash_amount=cash_amount,
             transfer_amount=transfer_amount,
+            note=note,
             created_by=request.user,
         )
 

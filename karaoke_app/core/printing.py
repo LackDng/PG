@@ -246,6 +246,11 @@ def _print_invoice_content(p, invoice):
         except Exception:
             pass
 
+    if invoice.note:
+        p.text("=" * W + "\n")
+        p.set(align="left")
+        p.text(f"Ghi chu: {invoice.note}\n")
+
     p.text("=" * W + "\n")
     p.set(align="center")
     p.text("Cam on quy khach!\n")
@@ -465,6 +470,8 @@ def get_invoice_text(invoice):
         lines.append(f"Tien mat    : {invoice.cash_amount:,}d")
         lines.append(f"Chuyen khoan: {invoice.transfer_amount:,}d")
 
+    if invoice.note:
+        lines.append(f"Ghi chu: {invoice.note}")
     lines.append("=" * 40)
     lines.append("         Cam on quy khach!")
 

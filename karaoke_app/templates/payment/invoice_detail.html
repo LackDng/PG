@@ -21,6 +21,12 @@
           <div class="col-6 text-end"><strong>Thời gian:</strong> {{ invoice.created_at|date:"H:i d/m/Y" }}</div>
         </div>
 
+        {% if invoice.note %}
+        <div class="alert alert-info py-2 mb-3">
+          <i class="bi bi-chat-left-text me-2"></i><strong>Ghi chú:</strong> {{ invoice.note }}
+        </div>
+        {% endif %}
+
         <pre class="bg-light p-3 rounded small" style="white-space: pre-wrap; font-family: 'Courier New', monospace;">{{ invoice_text }}</pre>
 
         <div class="d-flex gap-2 mt-3 justify-content-center flex-wrap">
