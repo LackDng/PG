@@ -21,7 +21,10 @@ for /d %%d in ("%LOCALAPPDATA%\Programs\Python\Python*\Lib\site-packages\~*") do
     echo   Xoa folder bi hong: %%d
     rd /s /q "%%d" 2>nul
 )
-pip install -r requirements.txt pyinstaller --quiet
+for /d %%d in ("%LOCALAPPDATA%\Packages\PythonSoftwareFoundation*\LocalCache\local-packages\Python*\site-packages\~*") do (
+    rd /s /q "%%d" 2>nul
+)
+python -m pip install -r requirements.txt pyinstaller --quiet
 if errorlevel 1 (
     echo [LOI] Cai dat that bai.
     pause
@@ -40,7 +43,7 @@ if errorlevel 1 (
 cd ..
 
 echo [3/5] Build exe bang PyInstaller...
-pyinstaller karaoke.spec --clean --noconfirm
+python -m PyInstaller karaoke.spec --clean --noconfirm
 if errorlevel 1 (
     echo [LOI] PyInstaller that bai.
     pause
