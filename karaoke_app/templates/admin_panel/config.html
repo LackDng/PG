@@ -24,6 +24,13 @@
               placeholder="9100">
             <div class="form-text">Thường là 9100 (mặc định ESC/POS)</div>
           </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Khổ giấy</label>
+            <select name="paper_width" class="form-select">
+              <option value="80" {% if configs.paper_width == "80" %}selected{% endif %}>80mm (42 ký tự/dòng)</option>
+              <option value="58" {% if configs.paper_width == "58" %}selected{% endif %}>58mm (32 ký tự/dòng)</option>
+            </select>
+          </div>
         </div>
       </div>
 

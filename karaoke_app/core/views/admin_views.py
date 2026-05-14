@@ -202,6 +202,7 @@ def system_config(request):
     configs = {
         "printer_ip": Config.get("printer_ip", ""),
         "printer_port": Config.get("printer_port", "9100"),
+        "paper_width": Config.get("paper_width", "80"),
         "shop_name": Config.get("shop_name", "KARAOKE"),
         "shop_address": Config.get("shop_address", ""),
         "shop_phone": Config.get("shop_phone", ""),
@@ -213,6 +214,7 @@ def system_config(request):
     if request.method == "POST":
         Config.set("printer_ip", request.POST.get("printer_ip", "").strip())
         Config.set("printer_port", request.POST.get("printer_port", "9100").strip())
+        Config.set("paper_width", request.POST.get("paper_width", "80").strip())
         Config.set("shop_name", request.POST.get("shop_name", "KARAOKE").strip())
         Config.set("shop_address", request.POST.get("shop_address", "").strip())
         Config.set("shop_phone", request.POST.get("shop_phone", "").strip())
