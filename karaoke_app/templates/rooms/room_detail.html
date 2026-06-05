@@ -112,7 +112,8 @@
                   <button type="button" class="btn btn-sm btn-outline-warning ms-1 cancel-svc-btn"
                     title="Hủy (trong 30 phút đầu)"
                     data-url="{% url 'cancel_service_order' bd.order.id %}"
-                    data-name="{{ bd.order.service_name }}">
+                    data-name="{{ bd.order.service_name }}"
+                    data-bs-toggle="modal" data-bs-target="#cancelServiceModal">
                     <i class="bi bi-x-circle"></i>
                   </button>
                   {% endif %}
