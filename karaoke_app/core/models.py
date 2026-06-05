@@ -255,6 +255,10 @@ class Invoice(models.Model):
     printer_port = models.IntegerField(null=True, blank=True)
     printed = models.BooleanField(default=False)
 
+    @property
+    def grand_total(self):
+        return self.total_after_discount + self.tip
+
     def __str__(self):
         return f"Hóa đơn #{self.pk} - {self.session}"
 

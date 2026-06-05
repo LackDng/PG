@@ -214,10 +214,12 @@ const subtotal = {{ totals.subtotal }};
 
 function updateTotal() {
   const discountPct = parseInt(document.getElementById('discountInput').value) || 0;
+  const tipAmt = parseInt(document.querySelector('input[name="tip"]').value) || 0;
   const discountAmt = Math.round(subtotal * discountPct / 100);
   const afterDiscount = subtotal - discountAmt;
+  const grandTotal = afterDiscount + tipAmt;
 
-  document.getElementById('finalTotal').textContent = afterDiscount.toLocaleString('vi-VN') + 'đ';
+  document.getElementById('finalTotal').textContent = grandTotal.toLocaleString('vi-VN') + 'đ';
 
   if (discountPct > 0) {
     document.getElementById('discountLine').style.display = '';
@@ -226,6 +228,9 @@ function updateTotal() {
     document.getElementById('discountLine').style.display = 'none';
   }
 }
+
+// Tip input re-calculates total
+document.querySelector('input[name="tip"]').addEventListener('input', updateTotal);
 
 // Discount buttons
 document.querySelectorAll('.discount-btn').forEach(btn => {

@@ -48,15 +48,16 @@ def checkout_view(request, session_id):
         subtotal = totals["subtotal"]
         discount_amount = int(subtotal * discount_percent / 100)
         total_after_discount = subtotal - discount_amount
+        grand_total = total_after_discount + tip
 
         # Xác nhận số tiền hợp lệ
         if payment_method == "cash":
-            cash_amount = total_after_discount
+            cash_amount = grand_total
             transfer_amount = 0
         elif payment_method == "transfer":
-            transfer_amount = total_after_discount
+            transfer_amount = grand_total
             cash_amount = 0
-        # mixed: dùng giá trị từ form
+        # mixed: dùng giá trị từ form (user tự nhập, phải bao gồm tip)
 
         # Dừng tất cả dịch vụ mic đang chạy
         for so in session.get_all_service_orders().filter(status="running"):
@@ -115,10 +116,10 @@ def checkout_view(request, session_id):
                 messages.warning(request, f"Thanh toán thành công nhưng in thất bại: {msg}")
 
         ActivityLog.log(ActivityLog.ACTION_CHECKOUT, request.user,
-                        f"Thanh toán phòng {session.room.name}: {total_after_discount:,}đ "
+                        f"Thanh toán phòng {session.room.name}: {grand_total:,}đ "
                         f"({invoice.get_payment_method_display()})",
                         session=session)
-        messages.success(request, f"Thanh toán thành công! Tổng: {total_after_discount:,}đ")
+        messages.success(request, f"Thanh toán thành công! Tổng: {grand_total:,}đ")
         return redirect("invoice_detail", invoice_id=invoice.id)
 
     elif request.method == "POST" and not request.user.can_checkout():

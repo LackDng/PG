@@ -272,7 +272,7 @@ def _print_invoice_content(p, invoice):
     _t(p, "=" * W + "\n")
     p.set(bold=True, align="center")
     _t(p, "TONG THANH TOAN:\n")
-    _t(p, f"{invoice.total_after_discount:,}d\n")
+    _t(p, f"{invoice.grand_total:,}d\n")
     p.set(bold=False, align="left")
 
     _t(p, "-" * W + "\n")
@@ -288,7 +288,7 @@ def _print_invoice_content(p, invoice):
     bank_account   = Config.get("bank_account", "")
     account_holder = Config.get("account_holder", "")
     if bank_bin and bank_account:
-        qr_amount = invoice.transfer_amount if invoice.payment_method == "mixed" else invoice.total_after_discount
+        qr_amount = invoice.transfer_amount if invoice.payment_method == "mixed" else invoice.grand_total
         _print_qr_section(p, W, bank_bin, bank_account, account_holder, qr_amount, room_name)
 
     if invoice.note:
@@ -488,7 +488,7 @@ def get_invoice_text(invoice):
     if invoice.tip > 0:
         lines.append(f"{'Tip:':<32}{invoice.tip:>8,}d")
     lines.append("=" * 42)
-    lines.append(f"TONG THANH TOAN: {invoice.total_after_discount:,}d")
+    lines.append(f"TONG THANH TOAN: {invoice.grand_total:,}d")
     lines.append("=" * 42)
 
     if invoice.payment_method == "cash":
