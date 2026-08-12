@@ -1,6 +1,6 @@
 """
 Launcher cho Karaoke Manager Windows EXE.
-Duoc dong goi bang PyInstaller.
+Duoc dong goi bang PyInstaller voi console=False (an cua so CMD).
 """
 import sys
 import os
@@ -9,6 +9,7 @@ import webbrowser
 import time
 import socket
 import traceback
+import ctypes
 
 # ── Xac dinh duong dan ────────────────────────────────────────────────────────
 IS_FROZEN = getattr(sys, "frozen", False)
@@ -31,8 +32,7 @@ LOG_FILE = os.path.join(APP_DATA_DIR, "startup.log")
 
 
 def log(msg):
-    """Ghi dong thong bao ra console va file log."""
-    print(msg, flush=True)
+    """Ghi dong thong bao vao file log (khong co console)."""
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(msg + "\n")
@@ -40,19 +40,32 @@ def log(msg):
         pass
 
 
+def _msgbox(title, msg, icon=0x10):
+    """Hien thi hop thoai Windows (MB_OK | icon). Khong can console."""
+    try:
+        ctypes.windll.user32.MessageBoxW(0, msg, title, icon | 0x0)
+    except Exception:
+        pass
+
+
 def fatal(msg, exc=None):
-    """Hien thi loi nghiem trong, ghi log, dung lai cho nguoi dung doc."""
-    log("")
-    log("=" * 60)
-    log("  LOI KHOI DONG - STARTUP ERROR")
-    log("=" * 60)
-    log(msg)
+    """Hien thi loi qua hop thoai Windows, ghi log, thoat."""
+    full_log = "\n".join([
+        "",
+        "=" * 60,
+        "  LOI KHOI DONG - STARTUP ERROR",
+        "=" * 60,
+        msg,
+    ])
     if exc:
-        log(traceback.format_exc())
-    log("")
-    log(f"  Chi tiet loi duoc luu tai: {LOG_FILE}")
-    log("")
-    input("  Nhan Enter de thoat...")
+        full_log += "\n\n" + traceback.format_exc()
+    full_log += f"\n\n  Chi tiet loi duoc luu tai:\n  {LOG_FILE}"
+    log(full_log)
+    _msgbox(
+        "KaraokeManager - Loi khoi dong",
+        f"{msg}\n\nXem chi tiet tai:\n{LOG_FILE}",
+        icon=0x10,   # MB_ICONERROR
+    )
     sys.exit(1)
 
 
@@ -154,18 +167,15 @@ if __name__ == "__main__":
     lan_ip  = get_local_ip()
     lan_url = f"http://{lan_ip}:{PORT}"
 
-    print("=" * 55)
-    print("   KARAOKE MANAGER")
-    print("=" * 55)
-    print(f"  May chu nay  : {LOCAL_URL}")
-    print(f"  May khac LAN : {lan_url}")
-    print("=" * 55)
-    print("  Lan dau dang nhap: admin / admin123")
-    print("  Dong cua so nay de tat server.")
-    print("=" * 55)
-    print()
-
-    log(f"Log file: {LOG_FILE}")
+    log("=" * 55)
+    log("   KARAOKE MANAGER")
+    log("=" * 55)
+    log(f"  May chu nay  : {LOCAL_URL}")
+    log(f"  May khac LAN : {lan_url}")
+    log("=" * 55)
+    log("  Lan dau dang nhap: admin / admin123")
+    log("=" * 55)
+    log(f"  Log file: {LOG_FILE}")
     log("")
 
     setup_django()

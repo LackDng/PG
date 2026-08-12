@@ -128,7 +128,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,       # True = hiện cửa sổ console (để xem log/lỗi)
+    console=False,      # False = ẩn cửa sổ CMD, chạy nền như ứng dụng Windows
     icon=None,          # Thay bằng 'icon.ico' nếu có
     disable_windowed_traceback=False,
     argv_emulation=False,
