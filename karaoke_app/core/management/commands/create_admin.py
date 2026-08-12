@@ -10,22 +10,28 @@ class Command(BaseCommand):
         parser.add_argument("--username", default="admin")
         parser.add_argument("--password", default="admin123")
 
+    def _write(self, msg):
+        try:
+            self.stdout.write(msg)
+        except Exception:
+            pass
+
     def handle(self, *args, **options):
         username = options["username"]
         password = options["password"]
 
         if User.objects.filter(username=username).exists():
-            self.stdout.write(self.style.WARNING(f"Tài khoản '{username}' đã tồn tại."))
+            self._write(self.style.WARNING(f"Tai khoan '{username}' da ton tai."))
             return
 
         User.objects.create(
             username=username,
-            display_name="Quản trị viên",
+            display_name="Quan tri vien",
             password=make_password(password),
             role=User.ROLE_ADMIN,
             is_staff=True,
             is_superuser=True,
         )
-        self.stdout.write(self.style.SUCCESS(
-            f"Đã tạo tài khoản admin: {username} / {password}"
+        self._write(self.style.SUCCESS(
+            f"Da tao tai khoan admin: {username} / {password}"
         ))

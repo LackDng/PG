@@ -4,6 +4,7 @@ Duoc dong goi bang PyInstaller voi console=False (an cua so CMD).
 """
 import sys
 import os
+import io
 import threading
 import webbrowser
 import time
@@ -114,6 +115,16 @@ def is_port_free(port):
         return s.connect_ex(("127.0.0.1", port)) != 0
 
 
+def _call(cmd, *args, **kwargs):
+    """Goi management command voi stdout/stderr la buffer (tranh crash khi console=False)."""
+    from django.core.management import call_command
+    buf = io.StringIO()
+    call_command(cmd, *args, stdout=buf, stderr=buf, **kwargs)
+    output = buf.getvalue().strip()
+    if output:
+        log(output)
+
+
 def setup_django():
     log("[1/3] Khoi tao Django...")
     try:
@@ -124,15 +135,13 @@ def setup_django():
 
     log("[2/3] Chay migrations...")
     try:
-        from django.core.management import call_command
-        call_command("migrate", "--noinput", verbosity=0)
+        _call("migrate", "--noinput", verbosity=0)
     except Exception as e:
         fatal("Migration that bai.", e)
 
     log("[3/3] Kiem tra tai khoan admin...")
     try:
-        from django.core.management import call_command
-        call_command(
+        _call(
             "create_admin",
             "--username", os.environ.get("ADMIN_USER", "admin"),
             "--password", os.environ.get("ADMIN_PASS", "admin123"),
