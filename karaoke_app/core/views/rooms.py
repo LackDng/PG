@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils import timezone
 from django.http import JsonResponse
+from django.views.decorators.http import require_POST
 from core.models import Room, RoomSession, ServiceOrder, OrderItem, ServiceType, MenuItem, MenuCategory, ActivityLog, Config, Invoice
 from core.decorators import login_required_custom, staff_required, admin_required
 from core.pricing import calculate_session_total, get_cost_breakdown
@@ -237,6 +238,7 @@ def cancel_service_order(request, order_id):
     return redirect("room_detail", room_id=order.session.room_id)
 
 
+@require_POST
 @staff_required
 def stop_service_order(request, order_id):
     order = get_object_or_404(ServiceOrder, pk=order_id, status="running")
@@ -256,7 +258,9 @@ def add_menu_item(request, session_id):
 
     if request.method == "POST":
         menu_item_id = request.POST.get("menu_item_id")
-        quantity = int(request.POST.get("quantity", 1))
+        quantity = int(request.POST.get("quantity", 1) or 1)
+        if quantity <= 0:
+            quantity = 1
 
         menu_item = get_object_or_404(MenuItem, pk=menu_item_id, is_active=True)
 
@@ -283,7 +287,7 @@ def add_outside_item(request, session_id):
 
     if request.method == "POST":
         name = request.POST.get("name", "").strip()
-        quantity = int(request.POST.get("quantity", 1))
+        quantity = max(1, int(request.POST.get("quantity", 1) or 1))
         unit_price = int(request.POST.get("unit_price", 0))
 
         if name and unit_price > 0:
@@ -310,6 +314,9 @@ def remove_order_item(request, item_id):
     item = get_object_or_404(OrderItem, pk=item_id)
     room_id = item.session.room_id
     session = item.session
+    if session.status != "open":
+        messages.error(request, "Không thể xóa món của phòng đã đóng/hủy.")
+        return redirect("room_detail", room_id=room_id)
     ActivityLog.log(ActivityLog.ACTION_REMOVE_ITEM, request.user,
                     f"Xóa '{item.name}' x{item.quantity} khỏi phòng {session.room.name}",
                     session=session)
@@ -386,6 +393,7 @@ def cancel_room(request, session_id):
     return redirect("dashboard")
 
 
+@require_POST
 @staff_required
 def unmerge_table(request, session_id):
     """Hủy gộp bàn."""

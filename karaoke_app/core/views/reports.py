@@ -20,14 +20,24 @@ def _get_report_data(report_date):
         created_at__lt=day_end,
     ).select_related("session__room", "created_by").order_by("-created_at")
 
-    total_service  = invoices.aggregate(s=Sum("total_service"))["s"] or 0
-    total_food     = invoices.aggregate(s=Sum("total_food"))["s"] or 0
-    total_outside  = invoices.aggregate(s=Sum("total_outside"))["s"] or 0
-    total_discount = invoices.aggregate(s=Sum("discount_amount"))["s"] or 0
-    total_revenue  = invoices.aggregate(s=Sum("total_after_discount"))["s"] or 0
-    total_tip      = invoices.aggregate(s=Sum("tip"))["s"] or 0
-    total_cash     = invoices.aggregate(s=Sum("cash_amount"))["s"] or 0
-    total_transfer = invoices.aggregate(s=Sum("transfer_amount"))["s"] or 0
+    agg = invoices.aggregate(
+        s_service=Sum("total_service"),
+        s_food=Sum("total_food"),
+        s_outside=Sum("total_outside"),
+        s_discount=Sum("discount_amount"),
+        s_revenue=Sum("total_after_discount"),
+        s_tip=Sum("tip"),
+        s_cash=Sum("cash_amount"),
+        s_transfer=Sum("transfer_amount"),
+    )
+    total_service  = agg["s_service"]  or 0
+    total_food     = agg["s_food"]     or 0
+    total_outside  = agg["s_outside"]  or 0
+    total_discount = agg["s_discount"] or 0
+    total_revenue  = agg["s_revenue"]  or 0
+    total_tip      = agg["s_tip"]      or 0
+    total_cash     = agg["s_cash"]     or 0
+    total_transfer = agg["s_transfer"] or 0
 
     room_summaries = {}
     for inv in invoices:
@@ -38,7 +48,7 @@ def _get_report_data(report_date):
         room_summaries[rname]["service"] += inv.total_service
         room_summaries[rname]["food"]    += inv.total_food
         room_summaries[rname]["outside"] += inv.total_outside
-        room_summaries[rname]["total"]   += inv.total_after_discount
+        room_summaries[rname]["total"]   += inv.total_after_discount + inv.tip
 
     room_summaries = sorted(room_summaries.values(), key=lambda x: x["total"], reverse=True)
 
@@ -214,7 +224,7 @@ def _build_excel(report_date, data):
             inv.discount_amount,
             inv.total_after_discount,
             inv.tip,
-            inv.total_after_discount,
+            inv.total_after_discount + inv.tip,
             pm_labels.get(inv.payment_method, inv.payment_method),
             inv.cash_amount,
             inv.transfer_amount,

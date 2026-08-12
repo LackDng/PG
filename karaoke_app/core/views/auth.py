@@ -14,8 +14,11 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
-            next_url = request.GET.get("next", "dashboard")
-            return redirect(next_url)
+            next_url = request.GET.get("next", "")
+            # Chỉ cho phép redirect nội bộ, tránh open redirect
+            if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+                return redirect(next_url)
+            return redirect("dashboard")
         messages.error(request, "Tên đăng nhập hoặc mật khẩu không đúng.")
 
     return render(request, "login.html")
