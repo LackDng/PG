@@ -4,7 +4,6 @@ Duoc dong goi bang PyInstaller voi console=False (an cua so CMD).
 """
 import sys
 import os
-import io
 import threading
 import webbrowser
 import time
@@ -31,12 +30,22 @@ os.makedirs(APP_DATA_DIR, exist_ok=True)
 
 LOG_FILE = os.path.join(APP_DATA_DIR, "startup.log")
 
+# ── Redirect stdout/stderr sang log file khi chay o windowed mode ────────────
+# console=False khien sys.stdout/stderr = None, Django se crash khi ghi output.
+# Mo log file va gan vao sys.stdout/stderr de moi output deu vao file log.
+try:
+    _log_stream = open(LOG_FILE, "a", encoding="utf-8", buffering=1)
+    sys.stdout = _log_stream
+    sys.stderr = _log_stream
+except Exception:
+    pass
+
 
 def log(msg):
-    """Ghi dong thong bao vao file log (khong co console)."""
+    """Ghi dong thong bao vao file log."""
     try:
-        with open(LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(msg + "\n")
+        sys.stdout.write(msg + "\n")
+        sys.stdout.flush()
     except Exception:
         pass
 
@@ -71,15 +80,12 @@ def fatal(msg, exc=None):
 
 
 # ── Ghi thong tin mo dau vao log ─────────────────────────────────────────────
-try:
-    with open(LOG_FILE, "w", encoding="utf-8") as f:
-        f.write(f"KaraokeManager startup — Python {sys.version}\n")
-        f.write(f"IS_FROZEN={IS_FROZEN}\n")
-        f.write(f"BUNDLE_DIR={BUNDLE_DIR}\n")
-        f.write(f"EXE_DIR={EXE_DIR}\n")
-        f.write(f"APP_DATA_DIR={APP_DATA_DIR}\n\n")
-except Exception:
-    pass
+log(f"KaraokeManager startup — Python {sys.version}")
+log(f"IS_FROZEN={IS_FROZEN}")
+log(f"BUNDLE_DIR={BUNDLE_DIR}")
+log(f"EXE_DIR={EXE_DIR}")
+log(f"APP_DATA_DIR={APP_DATA_DIR}")
+log("")
 
 # ── Cau hinh Django ───────────────────────────────────────────────────────────
 DJANGO_APP_DIR = os.path.join(BUNDLE_DIR, "karaoke_app")
@@ -116,13 +122,9 @@ def is_port_free(port):
 
 
 def _call(cmd, *args, **kwargs):
-    """Goi management command voi stdout/stderr la buffer (tranh crash khi console=False)."""
+    """Goi management command, output duoc ghi vao log file."""
     from django.core.management import call_command
-    buf = io.StringIO()
-    call_command(cmd, *args, stdout=buf, stderr=buf, **kwargs)
-    output = buf.getvalue().strip()
-    if output:
-        log(output)
+    call_command(cmd, *args, **kwargs)
 
 
 def setup_django():
