@@ -3,21 +3,36 @@ from django.http import HttpResponse
 from django.utils import timezone
 from django.db.models import Sum
 from django.contrib import messages
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 from core.models import Invoice, RoomSession, ServiceOrder, OrderItem, ActivityLog
 from core.decorators import accountant_required, admin_required, login_required_custom
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
-def _get_report_data(report_date):
-    """Lấy dữ liệu báo cáo cho 1 ngày. Trả về dict."""
+
+def _parse_time(time_str):
+    """Parse 'HH:MM' thành time object, trả về None nếu không hợp lệ."""
+    try:
+        h, m = time_str.strip().split(":")
+        return time(int(h), int(m))
+    except Exception:
+        return None
+
+
+def _get_report_data(report_date, time_from=None, time_to=None):
+    """Lấy dữ liệu báo cáo. time_from/time_to là time object (HH:MM), None = cả ngày."""
     tz = timezone.get_current_timezone()
-    day_start = timezone.datetime.combine(report_date, timezone.datetime.min.time()).replace(tzinfo=tz)
-    day_end = day_start + timedelta(days=1)
+    t_from = time_from or time(0, 0)
+    t_to   = time_to   or time(23, 59, 59)
+    dt_from = timezone.datetime.combine(report_date, t_from).replace(tzinfo=tz)
+    dt_to   = timezone.datetime.combine(report_date, t_to).replace(tzinfo=tz)
+    # Nếu không có time_to thì lấy đến cuối ngày
+    if time_to is None:
+        dt_to = dt_from.replace(hour=0, minute=0, second=0) + timedelta(days=1)
 
     invoices = Invoice.objects.filter(
-        created_at__gte=day_start,
-        created_at__lt=day_end,
+        created_at__gte=dt_from,
+        created_at__lt=dt_to,
     ).select_related("session__room", "created_by").order_by("-created_at")
 
     agg = invoices.aggregate(
@@ -76,10 +91,17 @@ def daily_report(request):
     except ValueError:
         report_date = today
 
-    data = _get_report_data(report_date)
+    time_from_str = request.GET.get("time_from", "")
+    time_to_str   = request.GET.get("time_to", "")
+    time_from = _parse_time(time_from_str)
+    time_to   = _parse_time(time_to_str)
+
+    data = _get_report_data(report_date, time_from, time_to)
     return render(request, "reports/daily.html", {
         "report_date":     report_date,
         "report_date_str": report_date_str,
+        "time_from_str":   time_from_str,
+        "time_to_str":     time_to_str,
         **data,
     })
 
@@ -94,10 +116,20 @@ def export_excel(request):
     except ValueError:
         report_date = today
 
-    data = _get_report_data(report_date)
-    wb = _build_excel(report_date, data)
+    time_from_str = request.GET.get("time_from", "")
+    time_to_str   = request.GET.get("time_to", "")
+    time_from = _parse_time(time_from_str)
+    time_to   = _parse_time(time_to_str)
 
-    filename = f"baocao_{report_date.strftime('%Y%m%d')}.xlsx"
+    data = _get_report_data(report_date, time_from, time_to)
+    wb = _build_excel(report_date, data, time_from_str, time_to_str)
+
+    suffix = ""
+    if time_from_str or time_to_str:
+        tf = time_from_str.replace(":", "") if time_from_str else "0000"
+        tt = time_to_str.replace(":", "") if time_to_str else "2359"
+        suffix = f"_{tf}-{tt}"
+    filename = f"baocao_{report_date.strftime('%Y%m%d')}{suffix}.xlsx"
     response = HttpResponse(
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
@@ -106,7 +138,7 @@ def export_excel(request):
     return response
 
 
-def _build_excel(report_date, data):
+def _build_excel(report_date, data, time_from_str="", time_to_str=""):
     """Tạo workbook Excel từ dữ liệu báo cáo."""
     wb = openpyxl.Workbook()
 
@@ -114,21 +146,25 @@ def _build_excel(report_date, data):
     ws1 = wb.active
     ws1.title = "Tổng quan"
 
-    header_font   = Font(bold=True, size=12)
-    title_font    = Font(bold=True, size=14)
-    header_fill   = PatternFill("solid", fgColor="1F3864")
+    header_font    = Font(bold=True, size=12)
+    header_fill    = PatternFill("solid", fgColor="1F3864")
     subheader_fill = PatternFill("solid", fgColor="2E75B6")
-    white_font    = Font(bold=True, color="FFFFFF", size=11)
-    center        = Alignment(horizontal="center", vertical="center")
-    right         = Alignment(horizontal="right", vertical="center")
-    thin          = Border(
+    white_font     = Font(bold=True, color="FFFFFF", size=11)
+    center         = Alignment(horizontal="center", vertical="center")
+    right          = Alignment(horizontal="right", vertical="center")
+    thin           = Border(
         left=Side(style="thin"), right=Side(style="thin"),
         top=Side(style="thin"), bottom=Side(style="thin"),
     )
 
     # Tiêu đề
+    time_range_label = ""
+    if time_from_str or time_to_str:
+        tf = time_from_str or "00:00"
+        tt = time_to_str or "23:59"
+        time_range_label = f" ({tf} – {tt})"
     ws1.merge_cells("A1:F1")
-    ws1["A1"] = f"BÁO CÁO DOANH THU NGÀY {report_date.strftime('%d/%m/%Y')}"
+    ws1["A1"] = f"BÁO CÁO DOANH THU NGÀY {report_date.strftime('%d/%m/%Y')}{time_range_label}"
     ws1["A1"].font  = Font(bold=True, size=16, color="1F3864")
     ws1["A1"].alignment = center
 

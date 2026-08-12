@@ -5,11 +5,17 @@
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
   <h4 class="mb-0 fw-bold"><i class="bi bi-bar-chart me-2"></i>Báo cáo ngày</h4>
   <div class="d-flex gap-2 flex-wrap align-items-center">
-    <form class="d-flex gap-2" method="get">
-      <input type="date" name="date" value="{{ report_date_str }}" class="form-control form-control-sm">
+    <form class="d-flex gap-2 flex-wrap align-items-center" method="get">
+      <input type="date" name="date" value="{{ report_date_str }}" class="form-control form-control-sm" style="width:auto">
+      <div class="d-flex align-items-center gap-1">
+        <span class="text-muted small">từ</span>
+        <input type="time" name="time_from" value="{{ time_from_str }}" class="form-control form-control-sm" style="width:auto">
+        <span class="text-muted small">đến</span>
+        <input type="time" name="time_to" value="{{ time_to_str }}" class="form-control form-control-sm" style="width:auto">
+      </div>
       <button type="submit" class="btn btn-primary btn-sm">Xem</button>
     </form>
-    <a href="{% url 'export_excel' %}?date={{ report_date_str }}" class="btn btn-success btn-sm">
+    <a href="{% url 'export_excel' %}?date={{ report_date_str }}&time_from={{ time_from_str }}&time_to={{ time_to_str }}" class="btn btn-success btn-sm">
       <i class="bi bi-file-earmark-excel me-1"></i>Xuất Excel
     </a>
     {% if user.can_manage_admin %}
@@ -20,7 +26,14 @@
   </div>
 </div>
 
-<h6 class="text-muted mb-3">Ngày: <strong>{{ report_date|date:"d/m/Y" }}</strong> — {{ invoice_count }} hóa đơn</h6>
+<h6 class="text-muted mb-3">
+  Ngày: <strong>{{ report_date|date:"d/m/Y" }}</strong>
+  {% if time_from_str or time_to_str %}
+    &nbsp;|&nbsp; Từ <strong>{{ time_from_str|default:"00:00" }}</strong>
+    đến <strong>{{ time_to_str|default:"23:59" }}</strong>
+  {% endif %}
+  &nbsp;—&nbsp; {{ invoice_count }} hóa đơn
+</h6>
 
 <!-- Tổng quan -->
 <div class="row g-3 mb-4">
@@ -154,7 +167,7 @@
           <td class="text-end text-danger">
             {% if inv.discount_percent > 0 %}-{{ inv.discount_amount|vnd }}đ ({{ inv.discount_percent }}%){% else %}—{% endif %}
           </td>
-          <td class="text-end fw-bold text-success">{{ inv.total_after_discount|vnd }}đ</td>
+          <td class="text-end fw-bold text-success">{{ inv.grand_total|vnd }}đ</td>
           <td>
             {% if inv.payment_method == 'cash' %}
               <span class="badge bg-success">Tiền mặt</span>
