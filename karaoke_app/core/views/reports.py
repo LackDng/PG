@@ -19,16 +19,8 @@ def _parse_time(time_str):
         return None
 
 
-def _get_report_data(report_date, time_from=None, time_to=None):
-    """Lấy dữ liệu báo cáo. time_from/time_to là time object (HH:MM), None = cả ngày."""
-    tz = timezone.get_current_timezone()
-    t_from = time_from or time(0, 0)
-    t_to   = time_to   or time(23, 59, 59)
-    dt_from = timezone.datetime.combine(report_date, t_from).replace(tzinfo=tz)
-    dt_to   = timezone.datetime.combine(report_date, t_to).replace(tzinfo=tz)
-    # Nếu không có time_to thì lấy đến cuối ngày
-    if time_to is None:
-        dt_to = dt_from.replace(hour=0, minute=0, second=0) + timedelta(days=1)
+def _get_report_data(dt_from, dt_to):
+    """Lấy dữ liệu báo cáo trong khoảng dt_from..dt_to (aware datetimes)."""
 
     invoices = Invoice.objects.filter(
         created_at__gte=dt_from,
@@ -82,54 +74,79 @@ def _get_report_data(report_date, time_from=None, time_to=None):
     }
 
 
+def _parse_date(date_str, fallback):
+    try:
+        return date.fromisoformat(date_str)
+    except Exception:
+        return fallback
+
+
+def _build_range(date_from, time_from_str, date_to, time_to_str):
+    """Tạo cặp aware datetime từ các tham số lọc."""
+    tz = timezone.get_current_timezone()
+    t_from = _parse_time(time_from_str) or time(0, 0)
+    dt_from = timezone.datetime.combine(date_from, t_from).replace(tzinfo=tz)
+
+    t_to = _parse_time(time_to_str)
+    if t_to:
+        dt_to = timezone.datetime.combine(date_to, t_to).replace(tzinfo=tz)
+    else:
+        dt_to = timezone.datetime.combine(date_to, time(0, 0)).replace(tzinfo=tz) + timedelta(days=1)
+    return dt_from, dt_to
+
+
 @accountant_required
 def daily_report(request):
     today = timezone.localdate()
-    report_date_str = request.GET.get("date", today.strftime("%Y-%m-%d"))
-    try:
-        report_date = date.fromisoformat(report_date_str)
-    except ValueError:
-        report_date = today
-
+    date_from_str = request.GET.get("date_from", today.strftime("%Y-%m-%d"))
+    date_to_str   = request.GET.get("date_to",   today.strftime("%Y-%m-%d"))
     time_from_str = request.GET.get("time_from", "")
-    time_to_str   = request.GET.get("time_to", "")
-    time_from = _parse_time(time_from_str)
-    time_to   = _parse_time(time_to_str)
+    time_to_str   = request.GET.get("time_to",   "")
 
-    data = _get_report_data(report_date, time_from, time_to)
+    date_from = _parse_date(date_from_str, today)
+    date_to   = _parse_date(date_to_str,   today)
+    if date_from > date_to:
+        date_to = date_from
+
+    dt_from, dt_to = _build_range(date_from, time_from_str, date_to, time_to_str)
+    data = _get_report_data(dt_from, dt_to)
     return render(request, "reports/daily.html", {
-        "report_date":     report_date,
-        "report_date_str": report_date_str,
-        "time_from_str":   time_from_str,
-        "time_to_str":     time_to_str,
+        "date_from_str": date_from.strftime("%Y-%m-%d"),
+        "date_to_str":   date_to.strftime("%Y-%m-%d"),
+        "time_from_str": time_from_str,
+        "time_to_str":   time_to_str,
+        "dt_from":       dt_from,
+        "dt_to":         dt_to,
         **data,
     })
 
 
 @accountant_required
 def export_excel(request):
-    """Xuất báo cáo ngày ra file Excel."""
+    """Xuất báo cáo ra file Excel theo khoảng ngày+giờ."""
     today = timezone.localdate()
-    report_date_str = request.GET.get("date", today.strftime("%Y-%m-%d"))
-    try:
-        report_date = date.fromisoformat(report_date_str)
-    except ValueError:
-        report_date = today
-
+    date_from_str = request.GET.get("date_from", today.strftime("%Y-%m-%d"))
+    date_to_str   = request.GET.get("date_to",   today.strftime("%Y-%m-%d"))
     time_from_str = request.GET.get("time_from", "")
-    time_to_str   = request.GET.get("time_to", "")
-    time_from = _parse_time(time_from_str)
-    time_to   = _parse_time(time_to_str)
+    time_to_str   = request.GET.get("time_to",   "")
 
-    data = _get_report_data(report_date, time_from, time_to)
-    wb = _build_excel(report_date, data, time_from_str, time_to_str)
+    date_from = _parse_date(date_from_str, today)
+    date_to   = _parse_date(date_to_str,   today)
+    if date_from > date_to:
+        date_to = date_from
 
-    suffix = ""
-    if time_from_str or time_to_str:
-        tf = time_from_str.replace(":", "") if time_from_str else "0000"
-        tt = time_to_str.replace(":", "") if time_to_str else "2359"
-        suffix = f"_{tf}-{tt}"
-    filename = f"baocao_{report_date.strftime('%Y%m%d')}{suffix}.xlsx"
+    dt_from, dt_to = _build_range(date_from, time_from_str, date_to, time_to_str)
+    data = _get_report_data(dt_from, dt_to)
+    wb = _build_excel(dt_from, dt_to, data)
+
+    tf = time_from_str.replace(":", "") if time_from_str else ""
+    tt = time_to_str.replace(":", "")   if time_to_str   else ""
+    time_suffix = f"_{tf}-{tt}" if (tf or tt) else ""
+    if date_from == date_to:
+        filename = f"baocao_{date_from.strftime('%Y%m%d')}{time_suffix}.xlsx"
+    else:
+        filename = f"baocao_{date_from.strftime('%Y%m%d')}_den_{date_to.strftime('%Y%m%d')}{time_suffix}.xlsx"
+
     response = HttpResponse(
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
@@ -138,7 +155,7 @@ def export_excel(request):
     return response
 
 
-def _build_excel(report_date, data, time_from_str="", time_to_str=""):
+def _build_excel(dt_from, dt_to, data):
     """Tạo workbook Excel từ dữ liệu báo cáo."""
     wb = openpyxl.Workbook()
 
@@ -158,13 +175,17 @@ def _build_excel(report_date, data, time_from_str="", time_to_str=""):
     )
 
     # Tiêu đề
-    time_range_label = ""
-    if time_from_str or time_to_str:
-        tf = time_from_str or "00:00"
-        tt = time_to_str or "23:59"
-        time_range_label = f" ({tf} – {tt})"
+    local_from = timezone.localtime(dt_from)
+    local_to   = timezone.localtime(dt_to)
+    date_from_d = local_from.date()
+    date_to_d   = (local_to - timedelta(seconds=1)).date()
+    if date_from_d == date_to_d:
+        date_label = date_from_d.strftime("%d/%m/%Y")
+    else:
+        date_label = f"{date_from_d.strftime('%d/%m/%Y')} – {date_to_d.strftime('%d/%m/%Y')}"
+    time_label = f"  {local_from.strftime('%H:%M')} – {local_to.strftime('%H:%M')}"
     ws1.merge_cells("A1:F1")
-    ws1["A1"] = f"BÁO CÁO DOANH THU NGÀY {report_date.strftime('%d/%m/%Y')}{time_range_label}"
+    ws1["A1"] = f"BÁO CÁO DOANH THU  {date_label}  {time_label}"
     ws1["A1"].font  = Font(bold=True, size=16, color="1F3864")
     ws1["A1"].alignment = center
 

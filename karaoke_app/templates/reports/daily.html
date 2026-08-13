@@ -1,21 +1,24 @@
 {% extends "base.html" %}
-{% block title %}Báo cáo ngày {{ report_date }}{% endblock %}
+{% block title %}Báo cáo doanh thu{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-  <h4 class="mb-0 fw-bold"><i class="bi bi-bar-chart me-2"></i>Báo cáo ngày</h4>
+  <h4 class="mb-0 fw-bold"><i class="bi bi-bar-chart me-2"></i>Báo cáo doanh thu</h4>
   <div class="d-flex gap-2 flex-wrap align-items-center">
     <form class="d-flex gap-2 flex-wrap align-items-center" method="get">
-      <input type="date" name="date" value="{{ report_date_str }}" class="form-control form-control-sm" style="width:auto">
       <div class="d-flex align-items-center gap-1">
-        <span class="text-muted small">từ</span>
+        <span class="text-muted small">Từ</span>
+        <input type="date" name="date_from" value="{{ date_from_str }}" class="form-control form-control-sm" style="width:auto">
         <input type="time" name="time_from" value="{{ time_from_str }}" class="form-control form-control-sm" style="width:auto">
-        <span class="text-muted small">đến</span>
+      </div>
+      <div class="d-flex align-items-center gap-1">
+        <span class="text-muted small">Đến</span>
+        <input type="date" name="date_to" value="{{ date_to_str }}" class="form-control form-control-sm" style="width:auto">
         <input type="time" name="time_to" value="{{ time_to_str }}" class="form-control form-control-sm" style="width:auto">
       </div>
       <button type="submit" class="btn btn-primary btn-sm">Xem</button>
     </form>
-    <a href="{% url 'export_excel' %}?date={{ report_date_str }}&time_from={{ time_from_str }}&time_to={{ time_to_str }}" class="btn btn-success btn-sm">
+    <a href="{% url 'export_excel' %}?date_from={{ date_from_str }}&date_to={{ date_to_str }}&time_from={{ time_from_str }}&time_to={{ time_to_str }}" class="btn btn-success btn-sm">
       <i class="bi bi-file-earmark-excel me-1"></i>Xuất Excel
     </a>
     {% if user.can_manage_admin %}
@@ -27,11 +30,8 @@
 </div>
 
 <h6 class="text-muted mb-3">
-  Ngày: <strong>{{ report_date|date:"d/m/Y" }}</strong>
-  {% if time_from_str or time_to_str %}
-    &nbsp;|&nbsp; Từ <strong>{{ time_from_str|default:"00:00" }}</strong>
-    đến <strong>{{ time_to_str|default:"23:59" }}</strong>
-  {% endif %}
+  Từ <strong>{{ dt_from|date:"d/m/Y H:i" }}</strong>
+  đến <strong>{{ dt_to|date:"d/m/Y H:i" }}</strong>
   &nbsp;—&nbsp; {{ invoice_count }} hóa đơn
 </h6>
 
@@ -101,7 +101,7 @@
 
 {% if total_discount > 0 %}
 <div class="alert alert-warning">
-  <i class="bi bi-tag me-1"></i>Tổng giảm giá trong ngày: <strong>{{ total_discount|vnd }}đ</strong>
+  <i class="bi bi-tag me-1"></i>Tổng giảm giá: <strong>{{ total_discount|vnd }}đ</strong>
 </div>
 {% endif %}
 
@@ -161,7 +161,7 @@
         <tr>
           <td><a href="{% url 'invoice_detail' inv.id %}">#{{ inv.id }}</a></td>
           <td>{{ inv.session.room.name }}</td>
-          <td class="small text-muted">{{ inv.created_at|date:"H:i" }}</td>
+          <td class="small text-muted">{{ inv.created_at|date:"d/m H:i" }}</td>
           <td class="text-end">{{ inv.total_service|vnd }}đ</td>
           <td class="text-end">{{ inv.total_food|vnd }}đ</td>
           <td class="text-end text-danger">
@@ -180,7 +180,7 @@
           <td class="small">{{ inv.created_by.get_display_name|default:"—" }}</td>
         </tr>
         {% empty %}
-        <tr><td colspan="9" class="text-center text-muted py-4">Không có hóa đơn nào trong ngày này.</td></tr>
+        <tr><td colspan="9" class="text-center text-muted py-4">Không có hóa đơn nào trong khoảng thời gian này.</td></tr>
         {% endfor %}
       </tbody>
     </table>
